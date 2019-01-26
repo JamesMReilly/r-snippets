@@ -1,0 +1,176 @@
+---
+title: "Milwaukee Weather"
+output:
+  pdf_document: default
+  html_notebook: default
+  html_document:
+    df_print: paged
+---
+
+This notebook will walk through the exercise of opening a dataset of daily temperature and percipitation to explore introductory visualization models.
+
+
+###1) What is the form of the data?
+
+```{r load the data}
+#Load the data
+data = read.csv("data/milwaukee_weather.csv")
+
+nrows <- nrow(data)
+ncolumns <- ncol(data)
+head(data)
+```
+
+Our dataset has `r nrows` records of weather and `r ncolumns` variables on each record. We will use these records to make various plots below
+
+###2) Scatter plot
+
+Lets view the average temperature over time. I am choosing a scatter plot for each record so that I can best view patterns over time of the year. I will be using ggplot2 as the plotting library to make these visuals.
+
+```{r install ggplot, include=FALSE}
+#Install ggplot2
+install.packages("ggplot2")
+install.packages("lubridate")
+
+```
+
+```{r, average temp plot}
+library(ggplot2)
+
+ggplot(data, aes(date, avg_temp)) + geom_point(size=1)
+
+
+```
+
+###3) Dealing with dates
+
+In order to get another view of the data, I will transform the set to include additional variables based on the date: Year, Month, and Day.
+
+```{r create new date variables}
+#Convert date variable from type Factor to Date
+data$date <- as.Date(data$date, "%Y-%m-%d")
+
+#Create the new variables from the date
+data$year <- as.numeric(format(data$date, "%Y"))
+data$month <- as.numeric(format(data$date, "%m"))
+data$day <- as.numeric(format(data$date, "%d"))
+
+head(data)
+```
+
+Our new table has variables for all relevant data about the date. In order to plot all three vs. average temperature to determine the best predictor I will reorder the date values so that our charts start with Sunday for dates, January for months, and the earliest year for year as we would expect the time plots to show.
+```{r build the box plots}
+
+valuesOrderedByDayOfWeek <- reorder(format(data$date, '%a'),data$date)
+valuesOrderedByMonth <- reorder(format(data$date, '%b'),data$date)
+valuesOrderedByYear <- reorder(format(data$date, '%Y'),data$date)
+
+DoWBoxPlot <- geom_boxplot(aes(x = valuesOrderedByDayOfWeek, y = data$avg_temp))
+monthlyBoxPlot <- geom_boxplot(aes(x = valuesOrderedByMonth, y = data$avg_temp))
+yearlyBoxPlot <- geom_boxplot(aes(x = valuesOrderedByYear, y = data$avg_temp))
+
+```
+
+
+With all of the box plots configured I just need to use ggplot to construct the chart and add labels
+
+
+```{r run the plots}
+ggplot(data) + DoWBoxPlot + xlab('Day of Week') + ylab('Average Temperature')
+ggplot(data) + monthlyBoxPlot + xlab('Month') + ylab('Average Temperature')
+ggplot(data) + yearlyBoxPlot + xlab('Year') + ylab('Average Temperature')
+
+```
+
+
+We can see through the charts that month is the best predictor for temperature and there is no easily identifiable correlation between year or DoW and temperature.
+
+
+###4) A look at snowfall
+
+Another variable we have from our table is snowfall a look of snowfall over time can be similarly generated as our original scatter plot of temperature over time, and also with a line chart.
+
+```{r plot snowfall over time}
+
+plot <- ggplot(data, aes(date, snowfall))
+
+plot + geom_point()
+plot + geom_line()
+
+```
+
+I believe that the point plot is better suited because it highlights how uncommon these events are over time.
+
+###5) All precipitation
+
+Snow and rain can be combined into a new variable: total_precipitation. To calculate this we just need to take the sum of both variables on each record
+
+```{r total precipitation calc}
+data$total_precipitation <- data$snowfall + data$rainfall
+
+head(data)
+```
+
+We also care about whether a specific day of precipitation is rain or snow. A simple approach I will use is to represent "has_snowed" as a boolean and any snow greater than 0 will be TRUE else FALSE
+
+```{r has snowed}
+data$has_snowed <- data$snowfall > 0
+
+head(data)
+```
+
+With the total_precipitation and has_snowed columns we can plot total_precipitation vs has_snowed. I selected a box plot so we can compare the amount of precipitation on days that it snowed vs days that it did not. 
+
+```{r}
+plot <- ggplot(data, aes(x = has_snowed, y = total_precipitation, color=has_snowed))
+
+plot + geom_boxplot() + xlab("Did it Snow?") + ylab("Total Precipitation") + labs(color = "Has Snowed")
+
+```
+
+We see here that when it *does* snow, the median precipitation is much higher. This chart is biased however becase it includes days with 0 precipitation in the false column. We can remove these and replot
+
+```{r filter out no precipitation days}
+
+onlyDaysWithPreciptation <- subset(data, total_precipitation > 0)
+
+unbiasedPlot <- ggplot(onlyDaysWithPreciptation, aes(x = onlyDaysWithPreciptation$has_snowed, y = onlyDaysWithPreciptation$total_precipitation, color=onlyDaysWithPreciptation$has_snowed))
+
+unbiasedPlot + geom_boxplot() + xlab("Did it Snow?") + ylab("Total Precipitation") + labs(color="Has Snowed")
+
+```
+
+Now we get a clearer picture that not only is the median amount of snow higher than rain, on days that *it does* rain it is still typically less than on days that it snows
+
+###6) Wind speed over time
+
+The final variable we have yet to touch is average wind speed (in miles per hour). A plot of wind speed over time is presented below. As a note we are using the original data here again and not the filtered subset
+
+```{r windspeed plot}
+plot <- ggplot(data, aes(x = date, y = avg_wind_speed))
+
+plot+ geom_line()
+```
+
+There is _some_ sinusoidal appearance. It looks like the median values are higher some times of the year versus other. We can see if this is true through a box plot segregated by month similar to our average temp plot from before.
+
+```{r windspeed by month}
+monthlyBoxPlot <- geom_boxplot(aes(x = valuesOrderedByMonth, y = data$avg_wind_speed))
+
+
+ggplot(data) + monthlyBoxPlot + xlab('Month') + ylab('Average Wind Speed')
+```
+Our median values are lower in the peak summer months (June, July, August) than they are in the rest of the year. There are also several outlier high outlier days later in the year (October through February)
+
+###7) Average wind speed during snow
+
+So is there a correlation between wind speed and snow? Lets visualize the relation using a box plot
+
+```{r has snowed relation to wind speed}
+plot <- ggplot(data, aes(x = has_snowed, y = avg_wind_speed, color=has_snowed)) 
+
+plot+ geom_boxplot() + xlab("Did it Snow?") + ylab("Average Wind Speed (mph)") + labs(color="Has Snowed")
+
+```
+
+So there is some pattern between snow and wind speed. The median wind speed on days that it snowed is greater than the median wind speed on all other days, and the data is normally distributed for both sets.
