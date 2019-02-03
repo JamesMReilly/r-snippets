@@ -1,0 +1,179 @@
+---
+title: "Forward Feature Selection - Animal Scat"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+In this exercise I explore the [Animal Scat](https://topepo.github.io/caret/data-sets.html#animal-scat-data) dataset, provided through the caret. I predict the species of the animal based on a subset of the available predictors.
+
+###1) Dataset selection and intial view 
+```{r open dependencies, message=FALSE}
+#open required libraries
+library(caret)
+library(ggplot2)
+library(dplyr)
+library(forecast)
+library(fastDummies)
+```
+
+This dataset can be loaded through the below command if caret is installed
+
+```{r display the initial data}
+data(scat)
+nrows <- nrow(scat)
+ncols <- ncol(scat)
+
+scat <- fastDummies::dummy_cols(scat, select_columns = "Species")
+head(scat)
+```
+Our dataset has `r nrows` records of animal scat and `r ncols` variables for each record. We can see from the `head` that the variables are in numbers and booleans (through one hot encoding). Through a multi-variate linear regression, we can try to predict the `Species` (our dependent variable) with the remaining predictor variables. Our first task will be determining which variables is the best predictor.
+
+###2&3) Separating our records with selection and selecting good features
+
+I want to add predictors in an order that will most improve the model. To do this, I must first determine which predictors would be best by visualizing their relationship individually to price. In order to select just a portion variables for all records I can use the following command
+
+```{r demo select}
+df.date <- select(scat, Month, Year, Species)
+
+head(df.date)
+```
+
+Now I will plot the predictors individually against `Species`. I will use the following 10: Length, Diameter, Taper, TI, Mass, d13c, d15n, CN, ropey, segmented
+```{r find first predictor, fig.width = 4, fig.height = 3}
+
+ggplot(data=select(scat, Length, Species), aes(x=Species, y=Length)) + geom_boxplot()
+ggplot(data=select(scat, Diameter, Species), aes(x=Species, y=Diameter)) + geom_boxplot()
+ggplot(data=select(scat, Taper, Species), aes(x = Species, y = Taper)) + geom_boxplot()
+ggplot(data=select(scat, TI, Species), aes(x = Species, y = TI)) + geom_boxplot()
+ggplot(data=select(scat, Mass, Species), aes(x = Species, y = Mass)) + geom_boxplot()
+ggplot(data=select(scat, d13C, Species), aes(x = Species, y = d13C)) + geom_boxplot()
+ggplot(data=select(scat, d15N, Species), aes(x = Species, y = d15N)) + geom_boxplot()
+ggplot(data=select(scat, CN, Species), aes(x = Species, y = CN)) + geom_boxplot()
+ggplot(data=select(scat, ropey, Species), aes(x = Species, y = ropey)) + geom_boxplot()
+ggplot(data=select(scat, segmented, Species), aes(x = Species, y = segmented)) + geom_boxplot()
+```
+From these observations, I believe that mass will be the best first predictor because of the differences in median values for the 3 species, and that `gray_fox` has little overlap with the other two in mass so we should be able to predict those well. CN, d15N, and diameter also look to be good predictors. Length looks to be the worst predictor because its overwhelmingly similar amongst the three species. Next is to find the true best predictors through forward feature selection.
+
+###4) Finding the best predictor
+
+In order to find a real quantitative error, I followed the example in the text from *Table 6.3* to build a linear regression with the given data and print residual error of the model. I build a training set from a sample of the points.
+
+```{r producing single variable linear regressions}
+set.seed(1) # set the seed so that the partition is always the same
+df.train.index <- sample(c(1:nrows), nrows* 0.9) #use 90% of the data as a training set
+selected.vars <- c("Species_gray_fox", "Species_coyote", "Species_bobcat", "Length", "Diameter", "Taper", "TI", "Mass", "d13C", "d15N", "CN", "ropey", "segmented")
+df.train <- scat[df.train.index, selected.vars]
+df.test <- scat[-df.train.index, selected.vars]
+options(scipen = 999)
+
+```
+
+To start, I will look for variables with little varience in my set to eliminate ones with little predictive power by using caret
+
+
+```{r near zero varience}
+nearZeroVar(df.train, saveMetrics = TRUE)
+```
+My test set does not contain any near zero varience variables according to the column `nzv` in the above table, meaning none can be excluded right away
+
+Next is to check for correlated variables to only select ones with unique predictive power
+
+```{r correlated variables}
+## select only complete records to check for linear correlation
+
+completeRecords <- df.train %>% filter(complete.cases(.))
+
+findLinearCombos(completeRecords)
+```
+I did not find any linearly related variables, which is good. With this I can continue safely using any of my variables. I will ask the question *Does this animal scat sample come from a gray fox?* and build my model.
+
+```{r select the first predictor}
+sigma(lm(Species_gray_fox ~ Length, data = df.train))
+sigma(lm(Species_gray_fox ~ Diameter, data=df.train))
+sigma(lm(Species_gray_fox ~ Taper, data=df.train))
+sigma(lm(Species_gray_fox ~ TI, data=df.train))
+sigma(lm(Species_gray_fox ~ Mass, data=df.train))
+sigma(lm(Species_gray_fox ~ d13C, data=df.train))
+sigma(lm(Species_gray_fox ~ d15N, data=df.train))
+sigma(lm(Species_gray_fox ~ CN, data=df.train))
+sigma(lm(Species_gray_fox ~ ropey, data=df.train))
+sigma(lm(Species_gray_fox ~ segmented, data=df.train))
+
+```
+
+The best fit for my test set was with diameter. I will continue the process of fitting my dataset to parameters until no further improvement is observed.
+
+###5) Repeating prediction with a second variable
+
+Repeat the selection process but with Diameter in every set
+
+```{r repeat selection for 2nd predictor}
+sigma(lm(Species_gray_fox ~ Diameter + Length, data = df.train))
+sigma(lm(Species_gray_fox ~ Diameter + Taper, data=df.train))
+sigma(lm(Species_gray_fox ~ Diameter + TI, data=df.train))
+sigma(lm(Species_gray_fox ~ Diameter + Mass, data=df.train))
+sigma(lm(Species_gray_fox ~ Diameter + d13C, data=df.train))
+sigma(lm(Species_gray_fox ~ Diameter + d15N, data=df.train))
+sigma(lm(Species_gray_fox ~ Diameter + CN, data=df.train))
+sigma(lm(Species_gray_fox ~ Diameter + ropey, data=df.train))
+sigma(lm(Species_gray_fox ~ Diameter + segmented, data=df.train))
+```
+`CN` is our second best predictor in combination with `Diameter`. Looking back at our graphs this makes sense because both capture unique factors about the Gray Fox relative to the other species. I will continue this process for all predictors.
+
+###6) Repeat feature selection until there is no improvement
+
+```{r repeat selection for 3rd predictor}
+sigma(lm(Species_gray_fox ~ Diameter + CN + Length, data = df.train))
+sigma(lm(Species_gray_fox ~ Diameter + CN + Taper, data=df.train))
+sigma(lm(Species_gray_fox ~ Diameter + CN + TI, data=df.train))
+sigma(lm(Species_gray_fox ~ Diameter + CN + Mass, data=df.train))
+sigma(lm(Species_gray_fox ~ Diameter + CN + d13C, data=df.train))
+sigma(lm(Species_gray_fox ~ Diameter + CN + d15N, data=df.train))
+sigma(lm(Species_gray_fox ~ Diameter + CN + ropey, data=df.train))
+sigma(lm(Species_gray_fox ~ Diameter + CN + segmented, data=df.train))
+```
+
+`Mass` is our 3rd best predictor
+
+```{r repeat selection for 4th predictor}
+sigma(lm(Species_gray_fox ~ Diameter + CN + Mass + Length, data = df.train))
+sigma(lm(Species_gray_fox ~ Diameter + CN + Mass + Taper, data=df.train))
+sigma(lm(Species_gray_fox ~ Diameter + CN + Mass + TI, data=df.train))
+sigma(lm(Species_gray_fox ~ Diameter + CN + Mass + d13C, data=df.train))
+sigma(lm(Species_gray_fox ~ Diameter + CN + Mass + d15N, data=df.train))
+sigma(lm(Species_gray_fox ~ Diameter + CN + Mass + ropey, data=df.train))
+sigma(lm(Species_gray_fox ~ Diameter + CN + Mass + segmented, data=df.train))
+```
+
+`d15N` is our 4th best predictor
+
+```{r repeat selection for 5th predictor}
+sigma(lm(Species_gray_fox ~ Diameter + CN + Mass + d15N + Length, data = df.train))
+sigma(lm(Species_gray_fox ~ Diameter + CN + Mass + d15N + Taper, data=df.train))
+sigma(lm(Species_gray_fox ~ Diameter + CN + Mass + d15N + TI, data=df.train))
+sigma(lm(Species_gray_fox ~ Diameter + CN + Mass + d15N + d13C, data=df.train))
+sigma(lm(Species_gray_fox ~ Diameter + CN + Mass + d15N + ropey, data=df.train))
+sigma(lm(Species_gray_fox ~ Diameter + CN + Mass + d15N +  segmented, data=df.train))
+```
+
+In this round of selection, I found little close to no improvement. We can stop forward feature selection here and say that an Animal Scat sample can be predicted to be from a Gray Fox in these collected areas by using `Diameter`, `CN`, `Mass`, and `d15N`.
+
+To test our model we can pull out our validation set from before.
+
+```{r validation}
+scat.lm <- lm(Species_gray_fox ~ Diameter + CN + Mass + d15N, data = df.train)
+
+scat.lm.pred <- predict(scat.lm, df.test)
+data.frame("Actual_gray_fox" = select(df.test, Species_gray_fox), "Predicted_gray_fox" = scat.lm.pred)
+accuracy(scat.lm.pred, df.test$Species_gray_fox)
+```
+
+From this table we can see how our model was able to perform. If we round estimates to the nearest whole number (either 0, or 1) to classify, we had 1 false negative, and 0 false positives. We also had one NA classification because of missing data.
+
+Our Mean Absolute Error is 0.1876, which accounts for the false negative and would not effect any of the true negatives. 
+
+### Conclusion
+
+From this exercise, I was able to build a model that took a subset of the available predictors to predict if a scat sample came from a gray fox. This modeling process could be repeated for all 3 species and the collective predictions ensembled to decide which species is most likely the producer of a sample.
