@@ -1,0 +1,419 @@
+---
+title: "Forward Feature Selection - Used Cars"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+In this exercise I explore the [Kelly Blue Book](http://topepo.github.io/caret/data-sets.html#kelly-blue-book) dataset, provided through the caret, library that documents resale data for 2005 model year GM cars. Using the dplyr library I manipulate that set to identify which predictor is the best, add predictors in order of their improvement to the model. I end with a model that predicts the price of a car using only a subset of the variables.
+
+###1) Dataset selection and intial view 
+```{r open dependencies, message=FALSE}
+#open required libraries
+library(caret)
+library(ggplot2)
+library(dplyr)
+library(forecast)
+```
+
+This dataset can be loaded through the below command if caret is installed
+
+```{r display the initial data}
+data(cars)
+head(cars)
+nrows <- nrow(cars)
+ncols <- ncol(cars)
+```
+Our dataset has `r nrows` records of car sales and `r ncols` variables for each record. We can see from the `head` that the variables are in numbers and booleans (through one hot encoding). Through a multi-variate linear regression, we can try to predict the `Price` (our dependent variable) with the remaining predictor variables. Our first task will be determining which variables is the best predictor.
+
+###2&3) Separating our records with selection and selecting good features
+
+I want to add predictors in an order that will most improve the model. To do this, I must first determine which predictors would be best by visualizing their relationship individually to price. In order to select just one predictor and my independent variable I use the following command
+
+```{r demo select}
+df.mileage <- select(cars, Mileage, Price)
+
+head(df.mileage)
+```
+
+Now I will plot the predictors individually against `Price`
+```{r find first predictor, fig.width = 4, fig.height = 3}
+df.mileage <- select(cars, Mileage, Price)
+df.cylinder <- select(cars,Cylinder, Price)
+df.doors <- select(cars, Doors, Price)
+df.cruise <- select(cars, Cruise, Price)
+df.sound <- select(cars, Sound, Price)
+df.leather <- select(cars, Leather, Price)
+df.buick <- select(cars, Buick, Price)
+df.cadillac <- select(cars, Cadillac, Price)
+df.chevy <- select(cars, Chevy, Price)
+df.pontiac <- select(cars, Pontiac, Price)
+df.saab <- select(cars, Saab, Price)
+df.saturn <- select(cars, Saturn, Price)
+
+ggplot(data=df.mileage, aes(x=Mileage, y=Price)) + geom_point(size=1)
+ggplot(data=df.cylinder, aes(x=Cylinder, y=Price)) + geom_point(size=1)
+ggplot(data=df.doors, aes(x = Doors, y = Price)) + geom_point(size=1)
+ggplot(data=df.cruise, aes(x = Cruise, y = Price)) + geom_point(size=1)
+ggplot(data=df.sound, aes(x = Sound, y = Price)) + geom_point(size=1)
+ggplot(data=df.leather, aes(x = Leather, y = Price)) + geom_point(size=1)
+ggplot(data=df.buick, aes(x = Buick, y = Price)) + geom_point(size=1)
+ggplot(data=df.cadillac, aes(x = Cadillac, y = Price)) + geom_point(size=1)
+ggplot(data=df.chevy, aes(x = Chevy, y = Price)) + geom_point(size=1)
+ggplot(data=df.pontiac, aes(x = Pontiac, y = Price)) + geom_point(size=1)
+ggplot(data=df.saab, aes(x = Saab, y = Price)) + geom_point(size=1)
+ggplot(data=df.saturn, aes(x = Saturn, y = Price)) + geom_point(size=1)
+```
+This is a lot of data to take in at once. My first observation, _only_ variable I have that is a range and not a enumeration or a boolean is mileage. Cylinder engine is a enum which can be either 4, 6 or 8. All the remaining values are booleans which represent that the car either has that property or it does not. The final 6 variables combine to form a similar enum because each GM car can only be of one make. There are actually several very good predictors in here, for example we can see that all Saturns sell within a $10,000 range. Or that no Cadillac sold for less than $25,000. A problem this _could_ introduce is overfitting which would produce a high residual error at predicting Saturns valued outside of this range. Because of this I believe that mileage will be the best predictor outside of the make, and that sound will add little value because its subset is split most evenly.
+
+###4) Finding the best predictor
+
+In order to find a real quantitative error, I followed the example in the text from *Table 6.3* to build a linear regression with the given data and print residual error of the model.
+
+```{r producing single variable linear regressions}
+options(scipen = 999)
+
+df.mileage.lm <- lm(Price ~ ., data = df.mileage)
+sigma(df.mileage.lm)
+
+df.cylinder.lm <- lm(Price ~ ., data = df.cylinder)
+sigma(df.cylinder.lm )
+
+df.doors.lm <- lm(Price ~ ., data = df.doors)
+sigma(df.doors.lm)
+
+df.cruise.lm <- lm(Price ~ ., data = df.cruise)
+sigma(df.cruise.lm)
+
+df.sound.lm <- lm(Price ~ ., data = df.sound)
+sigma(df.sound.lm)
+
+df.buick.lm <- lm(Price ~ ., data = df.buick)
+sigma(df.buick.lm)
+
+df.cadillac.lm <- lm(Price ~ ., data = df.cadillac)
+sigma(df.cadillac.lm)
+
+df.chevy.lm <- lm(Price ~ ., data = df.chevy)
+sigma(df.chevy.lm)
+
+df.pontiac.lm <- lm(Price ~ ., data = df.pontiac)
+sigma(df.mileage.lm)
+
+df.saab.lm <- lm(Price ~ ., data = df.saab)
+sigma(df.saab.lm)
+
+df.saturn.lm <- lm(Price ~ ., data = df.saturn)
+sigma(df.saturn.lm)
+```
+
+The smallest standard error was actually the `Cadillac` variable. Although not a great estimate, it makes sense because looking back at the `Cadillac` graph the range of price for True/False are almost equal, but the cadillac has a higher base price. This means we can fit a line through the set that performs equally as well for both cadillac and non-cadillac cars. I will save the standard error for cadillac for future comparison
+
+```{r save the error}
+error1 <- sigma(df.cadillac.lm)
+```
+
+###5) Repeating prediction with a second variable
+
+In order to improve our model, we must as more than "Are you a Cadillac?" in order to capture the real diversity in our used cars. We repeat the above process but each model will start with the cadillac variable included.
+
+```{r repeat selection}
+df.mileage <- select(cars, Cadillac, Mileage, Price)
+df.cylinder <- select(cars, Cadillac, Cylinder, Price)
+df.doors <- select(cars, Cadillac, Doors, Price)
+df.cruise <- select(cars, Cadillac, Cruise, Price)
+df.sound <- select(cars, Cadillac, Sound, Price)
+df.leather <- select(cars, Cadillac, Leather, Price)
+df.buick <- select(cars, Cadillac, Buick, Price)
+df.chevy <- select(cars, Cadillac, Chevy, Price)
+df.pontiac <- select(cars, Cadillac, Pontiac, Price)
+df.saab <- select(cars, Cadillac, Saab, Price)
+df.saturn <- select(cars, Cadillac, Saturn, Price)
+```
+
+
+```{r retrain the models with 2 variables}
+df.mileage.lm <- lm(Price ~ ., data = df.mileage)
+sigma(df.mileage.lm)
+
+df.cylinder.lm <- lm(Price ~ ., data = df.cylinder)
+sigma(df.cylinder.lm )
+
+df.doors.lm <- lm(Price ~ ., data = df.doors)
+sigma(df.doors.lm)
+
+df.cruise.lm <- lm(Price ~ ., data = df.cruise)
+sigma(df.cruise.lm)
+
+df.sound.lm <- lm(Price ~ ., data = df.sound)
+sigma(df.sound.lm)
+
+df.buick.lm <- lm(Price ~ ., data = df.buick)
+sigma(df.buick.lm)
+
+df.chevy.lm <- lm(Price ~ ., data = df.chevy)
+sigma(df.chevy.lm)
+
+df.pontiac.lm <- lm(Price ~ ., data = df.pontiac)
+sigma(df.mileage.lm)
+
+df.saab.lm <- lm(Price ~ ., data = df.saab)
+sigma(df.saab.lm)
+
+df.saturn.lm <- lm(Price ~ ., data = df.saturn)
+sigma(df.saturn.lm)
+```
+
+Our models improved! This time the `Saab` variable offered the best reduction in standard error. I will continue this process, expecting improvement with each added make so that their specific price range can be modeled and will continue adding predictors until finally no improvement in the model is produced.
+
+###6) Repeating feature selection
+```{r third selection}
+df.mileage <- select(cars, Cadillac, Saab, Mileage, Price)
+df.cylinder <- select(cars, Cadillac, Saab, Cylinder, Price)
+df.doors <- select(cars, Cadillac, Saab, Doors, Price)
+df.cruise <- select(cars, Cadillac, Saab, Cruise, Price)
+df.sound <- select(cars, Cadillac, Saab, Sound, Price)
+df.leather <- select(cars, Cadillac, Saab, Leather, Price)
+df.buick <- select(cars, Cadillac, Saab, Buick, Price)
+df.chevy <- select(cars, Cadillac, Saab, Chevy, Price)
+df.pontiac <- select(cars, Cadillac, Saab, Pontiac, Price)
+df.saturn <- select(cars, Cadillac, Saab, Saturn, Price)
+```
+
+```{r retrain the models with 3 variables}
+df.mileage.lm <- lm(Price ~ ., data = df.mileage)
+sigma(df.mileage.lm)
+
+df.cylinder.lm <- lm(Price ~ ., data = df.cylinder)
+sigma(df.cylinder.lm )
+
+df.doors.lm <- lm(Price ~ ., data = df.doors)
+sigma(df.doors.lm)
+
+df.cruise.lm <- lm(Price ~ ., data = df.cruise)
+sigma(df.cruise.lm)
+
+df.sound.lm <- lm(Price ~ ., data = df.sound)
+sigma(df.sound.lm)
+
+df.buick.lm <- lm(Price ~ ., data = df.buick)
+sigma(df.buick.lm)
+
+df.chevy.lm <- lm(Price ~ ., data = df.chevy)
+sigma(df.chevy.lm)
+
+df.pontiac.lm <- lm(Price ~ ., data = df.pontiac)
+sigma(df.mileage.lm)
+
+df.saturn.lm <- lm(Price ~ ., data = df.saturn)
+sigma(df.saturn.lm)
+```
+
+*Cylinder* is the 3rd best predictor in our model, next to repeat for our 4th variable
+
+```{r fourth selection}
+df.mileage <- select(cars, Cadillac, Saab, Cylinder, Mileage, Price)
+df.doors <- select(cars, Cadillac, Saab, Cylinder, Doors, Price)
+df.cruise <- select(cars, Cadillac, Saab, Cylinder, Cruise, Price)
+df.sound <- select(cars, Cadillac, Saab, Cylinder, Sound, Price)
+df.leather <- select(cars, Cadillac, Saab, Cylinder, Leather, Price)
+df.buick <- select(cars, Cadillac, Saab, Cylinder, Buick, Price)
+df.chevy <- select(cars, Cadillac, Saab, Cylinder, Chevy, Price)
+df.pontiac <- select(cars, Cadillac, Saab, Cylinder, Pontiac, Price)
+df.saturn <- select(cars, Cadillac, Saab, Cylinder, Saturn, Price)
+```
+
+```{r retrain the models with 4 variables}
+df.mileage.lm <- lm(Price ~ ., data = df.mileage)
+sigma(df.mileage.lm)
+
+df.cylinder.lm <- lm(Price ~ ., data = df.cylinder)
+sigma(df.cylinder.lm )
+
+df.doors.lm <- lm(Price ~ ., data = df.doors)
+sigma(df.doors.lm)
+
+df.cruise.lm <- lm(Price ~ ., data = df.cruise)
+sigma(df.cruise.lm)
+
+df.sound.lm <- lm(Price ~ ., data = df.sound)
+sigma(df.sound.lm)
+
+df.buick.lm <- lm(Price ~ ., data = df.buick)
+sigma(df.buick.lm)
+
+df.chevy.lm <- lm(Price ~ ., data = df.chevy)
+sigma(df.chevy.lm)
+
+df.pontiac.lm <- lm(Price ~ ., data = df.pontiac)
+sigma(df.mileage.lm)
+
+df.saturn.lm <- lm(Price ~ ., data = df.saturn)
+sigma(df.saturn.lm)
+```
+
+*Doors* is the 4th best predictor in our model, next to repeat for our 5th variable
+
+```{r fifth selection}
+df.mileage <- select(cars, Cadillac, Saab, Cylinder, Doors, Mileage, Price)
+df.cruise <- select(cars, Cadillac, Saab, Cylinder, Doors, Cruise, Price)
+df.sound <- select(cars, Cadillac, Saab, Cylinder, Doors, Sound, Price)
+df.leather <- select(cars, Cadillac, Saab, Cylinder, Doors, Leather, Price)
+df.buick <- select(cars, Cadillac, Saab, Cylinder, Doors, Buick, Price)
+df.chevy <- select(cars, Cadillac, Saab, Cylinder, Doors, Chevy, Price)
+df.pontiac <- select(cars, Cadillac, Saab, Cylinder, Doors, Pontiac, Price)
+df.saturn <- select(cars, Cadillac, Saab, Cylinder, Doors, Saturn, Price)
+```
+
+```{r retrain the models with 5 variables}
+df.mileage.lm <- lm(Price ~ ., data = df.mileage)
+sigma(df.mileage.lm)
+
+df.cylinder.lm <- lm(Price ~ ., data = df.cylinder)
+sigma(df.cylinder.lm )
+
+df.cruise.lm <- lm(Price ~ ., data = df.cruise)
+sigma(df.cruise.lm)
+
+df.sound.lm <- lm(Price ~ ., data = df.sound)
+sigma(df.sound.lm)
+
+df.buick.lm <- lm(Price ~ ., data = df.buick)
+sigma(df.buick.lm)
+
+df.chevy.lm <- lm(Price ~ ., data = df.chevy)
+sigma(df.chevy.lm)
+
+df.pontiac.lm <- lm(Price ~ ., data = df.pontiac)
+sigma(df.mileage.lm)
+
+df.saturn.lm <- lm(Price ~ ., data = df.saturn)
+sigma(df.saturn.lm)
+```
+
+*Mileage* is the 5th best predictor in our model, next to repeat for our 6th variable
+
+```{r sixth selection}
+df.cruise <- select(cars, Cadillac, Saab, Cylinder, Doors, Mileage, Cruise, Price)
+df.sound <- select(cars, Cadillac, Saab, Cylinder, Doors, Mileage, Sound, Price)
+df.leather <- select(cars, Cadillac, Saab, Cylinder, Doors, Mileage, Leather, Price)
+df.buick <- select(cars, Cadillac, Saab, Cylinder, Doors, Mileage, Buick, Price)
+df.chevy <- select(cars, Cadillac, Saab, Cylinder, Doors, Mileage, Chevy, Price)
+df.pontiac <- select(cars, Cadillac, Saab, Cylinder, Doors, Mileage, Pontiac, Price)
+df.saturn <- select(cars, Cadillac, Saab, Cylinder, Doors, Mileage, Saturn, Price)
+```
+
+```{r retrain the models with 6 variables}
+df.cylinder.lm <- lm(Price ~ ., data = df.cylinder)
+sigma(df.cylinder.lm )
+
+df.cruise.lm <- lm(Price ~ ., data = df.cruise)
+sigma(df.cruise.lm)
+
+df.sound.lm <- lm(Price ~ ., data = df.sound)
+sigma(df.sound.lm)
+
+df.buick.lm <- lm(Price ~ ., data = df.buick)
+sigma(df.buick.lm)
+
+df.chevy.lm <- lm(Price ~ ., data = df.chevy)
+sigma(df.chevy.lm)
+
+df.pontiac.lm <- lm(Price ~ ., data = df.pontiac)
+sigma(df.mileage.lm)
+
+df.saturn.lm <- lm(Price ~ ., data = df.saturn)
+sigma(df.saturn.lm)
+```
+
+*Buick* is the 6th best predictor in our model, next to repeat for our 7th variable
+
+```{r seventh selection}
+df.cruise <- select(cars, Cadillac, Saab, Cylinder, Doors, Mileage, Buick, Cruise, Price)
+df.sound <- select(cars, Cadillac, Saab, Cylinder, Doors, Mileage, Buick, Sound, Price)
+df.leather <- select(cars, Cadillac, Saab, Cylinder, Doors, Mileage, Buick, Leather, Price)
+df.chevy <- select(cars, Cadillac, Saab, Cylinder, Doors, Mileage, Buick, Chevy, Price)
+df.pontiac <- select(cars, Cadillac, Saab, Cylinder, Doors, Mileage, Buick, Pontiac, Price)
+df.saturn <- select(cars, Cadillac, Saab, Cylinder, Doors, Mileage, Buick, Saturn, Price)
+```
+
+```{r retrain the models with 7 variables}
+df.cylinder.lm <- lm(Price ~ ., data = df.cylinder)
+sigma(df.cylinder.lm )
+
+df.cruise.lm <- lm(Price ~ ., data = df.cruise)
+sigma(df.cruise.lm)
+
+df.sound.lm <- lm(Price ~ ., data = df.sound)
+sigma(df.sound.lm)
+
+df.chevy.lm <- lm(Price ~ ., data = df.chevy)
+sigma(df.chevy.lm)
+
+df.pontiac.lm <- lm(Price ~ ., data = df.pontiac)
+sigma(df.mileage.lm)
+
+df.saturn.lm <- lm(Price ~ ., data = df.saturn)
+sigma(df.saturn.lm)
+```
+
+*Sound* is the 7th best predictor in our model, next to repeat for our 8th variable
+
+```{r eigth selection}
+df.cruise <- select(cars, Cadillac, Saab, Cylinder, Doors, Mileage, Buick, Cruise, Sound, Price)
+df.leather <- select(cars, Cadillac, Saab, Cylinder, Doors, Mileage, Buick, Sound, Leather, Price)
+df.chevy <- select(cars, Cadillac, Saab, Cylinder, Doors, Mileage, Buick, Sound, Chevy, Price)
+df.pontiac <- select(cars, Cadillac, Saab, Cylinder, Doors, Mileage, Buick, Sound, Pontiac, Price)
+df.saturn <- select(cars, Cadillac, Saab, Cylinder, Doors, Mileage, Buick, Sound, Saturn, Price)
+```
+
+```{r retrain the models with 8 variables}
+df.cylinder.lm <- lm(Price ~ ., data = df.cylinder)
+sigma(df.cylinder.lm )
+
+df.cruise.lm <- lm(Price ~ ., data = df.cruise)
+sigma(df.cruise.lm)
+
+df.chevy.lm <- lm(Price ~ ., data = df.chevy)
+sigma(df.chevy.lm)
+
+df.pontiac.lm <- lm(Price ~ ., data = df.pontiac)
+sigma(df.mileage.lm)
+
+df.saturn.lm <- lm(Price ~ ., data = df.saturn)
+sigma(df.saturn.lm)
+```
+
+*Chevy* is the 8th best predictor in our model, next to repeat for our 9th variable
+
+```{r ninth selection}
+df.cruise <- select(cars, Cadillac, Saab, Cylinder, Doors, Mileage, Buick, Chevy, Sound, Cruise, Price)
+df.leather <- select(cars, Cadillac, Saab, Cylinder, Doors, Mileage, Buick, Chevy, Sound, Cruise, Leather, Price)
+df.pontiac <- select(cars, Cadillac, Saab, Cylinder, Doors, Mileage, Buick, Chevy, Sound, Cruise, Pontiac, Price)
+df.saturn <- select(cars, Cadillac, Saab, Cylinder, Doors, Mileage, Buick, Chevy, Sound, Cruise, Saturn, Price)
+```
+
+```{r retrain the models with 9 variables}
+df.cylinder.lm <- lm(Price ~ ., data = df.cylinder)
+sigma(df.cylinder.lm )
+
+df.cruise.lm <- lm(Price ~ ., data = df.cruise)
+sigma(df.cruise.lm)
+
+df.pontiac.lm <- lm(Price ~ ., data = df.pontiac)
+sigma(df.mileage.lm)
+
+df.saturn.lm <- lm(Price ~ ., data = df.saturn)
+sigma(df.saturn.lm)
+```
+
+*The error is not reducing from the selected set* I will end my feature selection with the 8 predictors.
+
+```{r save final error}
+errorFinal <- sigma(df.chevy.lm)
+```
+
+### Conclusion
+
+From the selected 12 predictors, I added an individual feature each iteration until I was left with 8 that could predict the price of a used car as well as 9 predictors could. There was 6 other variables left out of the inital selection and those could be tested as well to see if they provide additional improved model results. The final error was `r errorFinal` which was `r error1 - errorFinal` less than the initial error of the first model: `r error1`. Our multivariate linear regression improved forecasting over any one variable by establishing coefficients for each property as they influenced the value of the car.
