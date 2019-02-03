@@ -1,0 +1,50 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r load the data}
+movies.df <- read.delim(file = 'data/movies.dat', header = TRUE, sep = '\t')
+userrated.movies.df <- read.delim(file = 'data/user_ratedmovies.dat', header = TRUE, sep = '\t')
+```
+
+```{r message=FALSE}
+library(dplyr)
+library(ggplot2)
+```
+
+```{r show the datasets}
+#rename the id column to movieID so that it exactly matches the userrated.movies.df
+movies.df <- movies.df %>% rename(movieID = id)
+
+head(movies.df)
+head(userrated.movies.df)
+
+dim(movies.df)
+dim(userrated.movies.df)
+```
+
+```{r merge the two datasets}
+rated.movies.df <- merge(movies.df, userrated.movies.df, by='movieID')
+```
+
+```{r show the merged dataset}
+head(rated.movies.df)
+
+dim(rated.movies.df)
+```
+
+```{r calculate average rating by users and total ratings by user}
+user.stats.df <- aggregate(rated.movies.df$rating, list(rated.movies.df$userID), mean)
+
+users.average <- aggregate(rated.movies.df$rating, list(rated.movies.df$userID), mean)
+users.total <- aggregate(rated.movies.df$rating, list(rated.movies.df$userID), count)
+
+
+head(users.average)
+head(users.total)
+```
