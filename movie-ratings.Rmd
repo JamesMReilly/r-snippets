@@ -15,6 +15,7 @@ userrated.movies.df <- read.delim(file = 'data/user_ratedmovies.dat', header = T
 ```{r message=FALSE}
 library(dplyr)
 library(ggplot2)
+library(reshape2)
 ```
 
 ```{r show the datasets}
@@ -39,12 +40,20 @@ dim(rated.movies.df)
 ```
 
 ```{r calculate average rating by users and total ratings by user}
-user.stats.df <- aggregate(rated.movies.df$rating, list(rated.movies.df$userID), mean)
+users.average <- aggregate(rated.movies.df$rating, list(rated.movies.df$userID), mean) %>% rename(Average.Rating = x, userID = Group.1)
+users.total <- rated.movies.df %>% count(userID, sort = TRUE) %>% rename(Reviews = n) %>% as.data.frame()
+users.stats <- merge(users.average, users.total, by='userID')
 
-users.average <- aggregate(rated.movies.df$rating, list(rated.movies.df$userID), mean)
-users.total <- aggregate(rated.movies.df$rating, list(rated.movies.df$userID), count)
+head(users.stats)
 
+ggplot(users.stats, aes(x = Average.Rating)) + geom_histogram()
+```
 
-head(users.average)
-head(users.total)
+```{r calculate average rating and number of ratings per movie}
+movies.total <- rated.movies.df %>% count(movieID, sort = TRUE) %>% rename(Ratings = n) %>% as.data.frame()
+movies.average <- aggregate(rated.movies.df$rating, list(rated.movies.df$movieID), mean) %>% rename(Average.Rating = x, movieID = Group.1)
+
+movies.stats <- merge(movies.average, movies.total, by='movieID')
+ggplot(movies.stats, aes(x = Ratings)) + scale_x_continuous(trans="log10") + geom_density()
+ggplot(movies.stats, aes(x = Ratings, y = Average.Rating)) + scale_x_continuous(trans="log10") + geom_point()
 ```
