@@ -55,7 +55,6 @@ data$year <- as.numeric(format(data$date, "%Y"))
 data$month <- as.numeric(format(data$date, "%m"))
 data$day <- as.numeric(format(data$date, "%d"))
 
-head(data)
 ```
 
 Our new table has variables for all relevant data about the date. In order to plot all three vs. average temperature to determine the best predictor I will reorder the date values so that our charts start with Sunday for dates, January for months, and the earliest year for year as we would expect the time plots to show.
@@ -173,4 +172,4 @@ plot+ geom_boxplot() + xlab("Did it Snow?") + ylab("Average Wind Speed (mph)") +
 
 ```
 
-So there is some pattern between snow and wind speed. The median wind speed on days that it snowed is greater than the median wind speed on all other days, and the data is normally distributed for both sets.
+There is no observable pattern between whether snow and wind. There are days with snow and low wind speed and days without snow and high windspeed.
