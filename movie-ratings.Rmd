@@ -1,11 +1,19 @@
 ---
-title: "R Notebook"
-output: html_notebook
+title: "Movie Ratings"
+output:
+  pdf_document: default
+  html_notebook: default
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+In this exercise I merge two datasets with information about movie ratings in order to visualize the distribution of ratings by all users, distribution of number of ratings, and information about average rating for each movie. Finally I model the rating of a movie by how it is has been rated historically and compare that to a naive model.
 
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+```{r clear the global env}
+rm(list=ls())
+```
+
+###1&2) Loading the data
+
+There are 2 data files: movies.dat which holds the records of movies and user_ratedmovies.dat which holds MovieLens users and their ratings for these movies.
 
 ```{r load the data}
 movies.df <- read.delim(file = 'data/movies.dat', header = TRUE, sep = '\t')
@@ -16,7 +24,12 @@ userrated.movies.df <- read.delim(file = 'data/user_ratedmovies.dat', header = T
 library(dplyr)
 library(ggplot2)
 library(reshape2)
+library(Metrics)
 ```
+
+###3) Manipulation and merging
+
+Before I can merge the datasets, I need a common column. I rename the `id` column from the movies.dat file to `movieID` to match the other dataframe exactly. This makes merging easier.
 
 ```{r show the datasets}
 #rename the id column to movieID so that it exactly matches the userrated.movies.df
@@ -29,6 +42,8 @@ dim(movies.df)
 dim(userrated.movies.df)
 ```
 
+The following command merges the 2 data frames on a `join` operation, meaning it will take the records from each set that both have the same `movieID` (specified in the `by` parameter) and combine the variables into 1 record. The resulting dataframe will have as many rows as there are matches and as many columns as there are variables in each dataframe being combined
+
 ```{r merge the two datasets}
 rated.movies.df <- merge(movies.df, userrated.movies.df, by='movieID')
 ```
@@ -38,6 +53,8 @@ head(rated.movies.df)
 
 dim(rated.movies.df)
 ```
+###4) Average and total ratings per user
+To calculate the average ratings and total number of ratings by each MovieLens user I use a combination of the `aggregate` function and the `count` function from `dplyr`. The aggregate acts like a SQL `group by` and will apply the mean function to each group to build a new dataframe. The count function is a simple `group by` and total of the number of elements.
 
 ```{r calculate average rating by users and total ratings by user}
 users.average <- aggregate(rated.movies.df$rating, list(rated.movies.df$userID), mean) %>% rename(Average.Rating = x, userID = Group.1)
@@ -46,14 +63,94 @@ users.stats <- merge(users.average, users.total, by='userID')
 
 head(users.stats)
 
-ggplot(users.stats, aes(x = Average.Rating)) + geom_histogram()
 ```
+
+###5) Histogram of average ratings by user
+```{r plot histogram of average ratings}
+mean.rating <- mean(rated.movies.df$rating)
+mean.rating
+ggplot(users.stats, aes(x = Average.Rating)) + geom_histogram(bins = 11)
+```
+
+The histogram shows that the typical movie lense user gives a movie a 3.5. The actual average rating of all movies is `r mean.rating` but 3.5 is the closest valid rating since we use a half point scale.
+
+###6) Total ratings density
+
+The next information we want to visualize is the number of ratings per movie, we use a log scale on the x axis as our transformation and plot a density plot. This will show the distribution of number of ratings smoother than a histogram, which assigns values to a limited number of bins.
 
 ```{r calculate average rating and number of ratings per movie}
 movies.total <- rated.movies.df %>% count(movieID, sort = TRUE) %>% rename(Ratings = n) %>% as.data.frame()
 movies.average <- aggregate(rated.movies.df$rating, list(rated.movies.df$movieID), mean) %>% rename(Average.Rating = x, movieID = Group.1)
-
-movies.stats <- merge(movies.average, movies.total, by='movieID')
-ggplot(movies.stats, aes(x = Ratings)) + scale_x_continuous(trans="log10") + geom_density()
-ggplot(movies.stats, aes(x = Ratings, y = Average.Rating)) + scale_x_continuous(trans="log10") + geom_point()
 ```
+
+```{r plot the density plot}
+movies.stats <- merge(movies.average, movies.total, by='movieID')
+ggplot(movies.stats, aes(x = Ratings)) + scale_x_continuous(name = "Log(#Ratings)", trans="log10") + geom_density() +ggtitle("Density of Log(# of Ratings) for each movie on MovieLens")
+```
+
+This tells us that the majoriy of the movies have between 10 and 50 ratings, with a minority of the set receiving over 100 ratings. There is a skew towards 0 ratings, but if we exclude less the movies with less than 1 review it is normally distributed across this transformation.
+
+###7) Number of ratings vs. average rating
+
+Next we want to know if there is a pattern between the number of times a movie is rated and the average rating it is given. To do this we use the same log transformation.
+
+```{r plot the point plot of total ratings vs average rating}
+ggplot(movies.stats, aes(x = Ratings, y = Average.Rating)) + scale_x_continuous(name = "Log(#Ratings)", trans="log10") + geom_point() + labs(title="Log(# of Ratings) vs. Average Rating")
+```
+
+There definitely a pattern where the minimum rating os higher the more a movie is rated. However the maximum rating does not change at all over the majority of movies. This pattern could tell us that there is a correlation between Average Rating and Number of ratings, namely that the better a movie, the more people will watch it and rate it. If a movie is also attracting more reviewers because it is objectively a good movie then we would expect those ratings to be higher (4 or 5) as well, which explains the average rating increase.
+
+###8) Modeling ratings per movie
+
+Finally we want to build a model that attempts to predict the rating of movie by a movie lens reviewer. Our model will attempt to answer the question: "What would a new reviewer rate a given movie?".
+
+Our baseline will be just guess that the user will rate the movie with the overall average of all movies. This is a naive model, but still a model.
+
+```{r naive model}
+base.model <- data.frame(rep(1, nrow(rated.movies.df)) * mean.rating)
+base.model.rmse <- rmse(rated.movies.df$rating, base.model$rep.1..nrow.rated.movies.df.....mean.rating)
+```
+
+Our base performance is an RMSE of `r base.model.rmse`, meaning that we must build a model that performs better than this simple guess.
+
+```{r average rating per movie}
+rated.movies.df <- merge(rated.movies.df, movies.average, by='movieID')
+
+average.model.rmse <- rmse(rated.movies.df$rating, rated.movies.df$Average.Rating)
+```
+
+Our first new model has an RMSE of `r average.model.rmse`, which is better than the naive model by `r base.model.rmse - average.model.rmse`
+
+Next we will build models that filter out portions of the dataset, this can tell us if there are better ways to model movies with less or more ratings
+
+```{r total ratings greater than 49, less than 250}
+moreThan50.movies <- filter(movies.total, Ratings >= 50) %>% filter(Ratings < 250)
+rated.movies.50.df <- subset(rated.movies.df, movieID %in% moreThan50.movies$movieID)
+
+moreThan50.model.rmse <- rmse(rated.movies.50.df$rating, rated.movies.50.df$Average.Rating)
+```
+
+When we only consider movies with more than 49 reviews but less than 250, the RMSE for the same method is `r moreThan50.model.rmse`
+
+```{r total ratings greater than 249, less than 750}
+moreThan250.movies <- filter(movies.total, Ratings >= 250) %>% filter(Ratings < 750)
+
+rated.movies.250.df <- subset(rated.movies.df, movieID %in% moreThan250.movies$movieID)
+
+
+moreThan250.model.rmse <- rmse(rated.movies.250.df$rating, rated.movies.250.df$Average.Rating)
+```
+
+Now only looking at a range [250, 750) we see an RMSE of `r moreThan250.model.rmse`
+
+```{r average greater than or equal to 750 ratings per movie}
+moreThan750.movies <- filter(movies.total, Ratings >= 750)
+
+rated.movies.750.df <- subset(rated.movies.df, movieID %in% moreThan750.movies$movieID)
+
+moreThan750.model.rmse <- rmse(rated.movies.750.df$rating, rated.movies.750.df$Average.Rating)
+```
+
+Our final segment has data with 750 or more ratings. This has an RMSE of `r moreThan750.model.rmse`
+
+No individual filtered segment had significantly better performance than the normal model against the average. This is likely caused by fact that even though the average rating tends to increase with the number of ratings, the contribution to total error by a low rating is greater for those movies and we saw that the ratings across all users were normall distributed. The best predictor is likely considers how a user has rated previous movies and is thus a more advance model that learns from the data.
