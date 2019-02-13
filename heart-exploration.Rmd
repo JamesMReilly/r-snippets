@@ -1,0 +1,39 @@
+---
+title: "Heart Disease"
+author: "Jim Reilly"
+date: "February 13, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+```
+
+
+
+## Summary
+
+
+
+## Data and Structure 
+
+```{r load the heart data}
+heart <- read.csv(file = 'data/heart.csv', header = TRUE)
+dim <- dim(heart)
+head(heart)
+
+```
+
+The dataset contains `r dim[0]` records with `r dim[1]` variables for each patient
+## Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+## Conclusion
