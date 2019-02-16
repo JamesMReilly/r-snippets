@@ -2,7 +2,9 @@
 title: "Heart Disease"
 author: "Jim Reilly"
 date: "February 13, 2019"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -13,27 +15,146 @@ rm(list=ls())
 
 
 ## Summary
+In this excercise I load the heart disease dataset from UCI provided through Kaggle and determine the 10 best predictors for heart disease through the use of visualizations. I propose that from the available data the best predictors are: `Sex`, `cp`, `fbs`, `restecg`, `thalach`, `exang`, `oldpeak`, `Slope`, `Ca`, and `Thal`
 
+## Libraries
+```{r open libraries, message=FALSE}
+library(ggplot2)
+library(dplyr)
+library(scales)
+```
 
 
 ## Data and Structure 
 
 ```{r load the heart data}
-heart <- read.csv(file = 'data/heart.csv', header = TRUE)
+heart <- read.csv(file = 'data/heart.csv', header = TRUE, sep = ',')
+#rename a likely formating error form the age column
+heart <- heart %>% rename(age = 'ï..age')
+heart$target <- factor(heart$target)
 dim <- dim(heart)
 head(heart)
 
 ```
 
 The dataset contains `r dim[0]` records with `r dim[1]` variables for each patient
+
+```{r statistical summarys}
+summary(heart)
+
+groups <- heart %>% group_by(target) %>% summarise(number_of_patients = length(target))
+groups
+```
+
+I have 138 patients without heart disease (target == 0) and 165 patients with heart disease (target == 1)
+
 ## Plots
 
 You can also embed plots, for example:
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r age}
+ageChart <- ggplot(data = heart, aes(x = target, y = age)) 
+ageChart + geom_boxplot() + labs(title = 'Age of patients grouped by heart disease')
+ageChart + geom_bin2d(bins = 7) + scale_fill_gradient(low = 'aliceblue', high = 'steelblue')
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Surprisingly, the median age of a patient with heart disease is higher in this sample than the median age of patients with heart disease. This does not follow my expectations from medical risk factors.
+
+```{r sex}
+sexPlot <- ggplot(data = heart, aes(x = factor(sex))) 
+sexPlot + geom_bar(aes(fill = target)) + xlab('Sex') +labs(title = 'Patients grouped by sex and presence of heart disease')
+```
+
+There is about twice as many males then females. Of the men, about half have heart disease. Woman have a much lower percentage of heart disease in their sample population. If we assume that these are normally sampled populations then the rate of heart disease in men is higher than in women.
+
+```{r cp}
+cpPlot <- ggplot(data = heart, aes(x = factor(cp)))
+cpPlot + geom_bar(aes(fill = target)) + xlab('Chest Pain Type') +labs(title = 'Patients grouped by chest pain type and presence of heart disease')
+```
+
+A majority of the patients without heart disease report now chest pain, whereas the patients with heart disease tend to point out _some_ kind of chest pain.
+
+```{r trestbps}
+trestBpsPlot <- ggplot(data = heart, aes(x = target, y = trestbps)) 
+trestBpsPlot + geom_boxplot() + labs(title = 'Resting blood pressure of patients at admission grouped by heart disease') +ylab('blood pressure (mmHg)')
+```
+
+Low deviation in resing blood pressure between patient categories. This is not likely to be a good classifier.
+
+
+```{r chol}
+cholPlot <- ggplot(data = heart, aes(x = target, y = chol)) 
+cholPlot + geom_boxplot() + labs(title = 'Cholestoral levels grouped by heart disease') +ylab('Serum Cholestoral (mg/dl)')
+```
+
+Low deviation in cholestoral reading between patient categories. This is not likely to be a good classifier.
+
+```{r fbs}
+fbsPlot <- ggplot(data = heart, aes(x = factor(fbs)))
+fbsPlot + geom_bar(aes(fill = target)) + xlab('Fasting blood sugar > 120 mg/dl') +labs(title = 'Patients with high fasting blood sugar grouped by heart disease')
+```
+
+An seemingly equal split between the number of patients with fasting blood sugar over 120 mg/dl with and without heart disease and those without high fasting blood sugar. This is not likely to be a good classifier.
+
+```{r restecg}
+ecgPlot <- ggplot(data = heart, aes(x = factor(restecg)))
+ecgPlot + geom_bar(aes(fill = target)) + xlab('Resting ECG result') +labs(title = 'Resting ECG results grouped by heart disease')
+```
+
+A majority of the patients with result `1` have heart disease, and a majority (although small) of the patients with result `2` do not have heart disease. This could be a good classifier.
+
+```{r thalach}
+thalachPlot <- ggplot(data = heart, aes(x = target, y = thalach)) 
+thalachPlot + geom_boxplot() + labs(title = 'Maximum heart rate achieved through excercise grouped by heart disease') +ylab('Heart Rate (bpm)')
+```
+
+There is a lot of deviation between the maximum heart rate value. This could indicate that a diseased heart had to beat much faster to circulate during excercise because the patients circulatory health is worse. This will be a good predictor.
+
+```{r exang}
+exangPlot <- ggplot(data = heart, aes(x = factor(exang)))
+exangPlot + geom_bar(aes(fill = target)) + xlab('Excercise induced angina') +labs(title = 'Patient experiences excercise induced angina grouped by heart disease')
+```
+
+A majority of the patients that experience excercise induced angina did not have heart disease, and vice versa
+
+```{r oldpeak}
+oldpeakPlot <- ggplot(data = heart, aes(x = target, y = oldpeak)) 
+oldpeakPlot + geom_boxplot() + labs(title = 'ST depression from excercise grouped by heart disease')
+```
+
+Patients without heart disease recorded a greater depression in the ST segment from excercise on average than those with heart disease. This is a good classifier.
+
+```{r slope}
+slopePlot <- ggplot(data = heart, aes(x = factor(slope)))
+slopePlot + geom_bar(aes(fill = target)) + labs(title = 'Slope of the peak exercise ST segment grouped by heart disease')
+```
+
+A majority of the patients with heart disease had a slope of 2 during peak exercise, while a majority of the patients without heart disease had a slope of 1.
+
+```{r ca}
+caPlot <- ggplot(data = heart, aes(x = factor(ca)))
+caPlot + geom_bar(aes(fill = target)) + labs(title = 'Number of major vessels colored by flourosopy grouped by heart disease')
+```
+
+If a patient had 0 or 4 vessels coloured, it is more likely that they have heart disease based on this chart. But a majority of the patients with 1, 2, or 3 vessels coloured did not have heart disease.
+
+```{r thal}
+thalPlot <- ggplot(data = heart, aes(x = factor(thal)))
+thalPlot + geom_bar(aes(fill = target)) + labs(title = 'Thal grouped by heart disease')
+```
+
+The thal data shows that the factor for 2 (fixed defect) is more likely for patients with heart disease and that the 3 factor (reversable defect) has more patients without heart disease
+
+## Selection
+
+I have 13 features to be used in selection:
+
+`Age`, `Sex`, `cp`, `trestbps`, `chol`, `fbs`, `restecg`, `thalach`, `exang`, `oldpeak`, `Slope`, `Ca`, `Thal`
+
+In order to proceed to modeling, I will eliminate the 3 features I believe to be the worst predictors. Reviewing the above charts I will eliminate Age, trestbps, and chol and proceed with the 10 predictors:
+
+`Sex`, `cp`, `fbs`, `restecg`, `thalach`, `exang`, `oldpeak`, `Slope`, `Ca`, `Thal`
 
 ## Conclusion
+
+In this excercise I have plotted visualizations that have allowed me to see the distributions between the available predictors in the dataset. From these observations I selected what I believe to be the 10 best predictors for a model that predicts whether a new patient has heart disease.
