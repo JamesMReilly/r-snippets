@@ -6,7 +6,7 @@ output:
     df_print: paged
 ---
 
-In this exercise I explore the [Animal Scat](https://topepo.github.io/caret/data-sets.html#animal-scat-data) dataset, provided through the caret. I repeat the forward feature selection from a previous exercise but use a logistic regression instead of a linear regression. I predict what species a scat sample comes from using a unique model for each classification.
+In this exercise I explore the [Animal Scat](https://topepo.github.io/caret/data-sets.html#animal-scat-data) dataset, provided through the caret. I repeat the forward feature selection from a previous exercise but use a logistic regression instead of a linear regression. 
 
 ###1) Dataset selection and intial view 
 ```{r open dependencies, message=FALSE}
@@ -32,425 +32,136 @@ head(scat)
 ```
 Our dataset has `r nrows` records of animal scat and `r ncols` variables for each record. We can see from the `head` that the variables are in numbers and booleans (through one hot encoding). Through a multi-variate logistic regression, we can try to predict the `Species` (our dependent variable) with the remaining predictor variables. Our first task will be determining which variables is the best predictor.
 
-###2&3) Separating our records with selection and selecting good features
+For review, our previous model was the following:
 
-I want to add predictors in an order that will most improve the model. To do this, I must first determine which predictors would be best by visualizing their relationship individually to species
-
-I will use the following 10: Length, Diameter, Taper, TI, Mass, d13c, d15n, CN, ropey, segmented
-```{r find first predictor, fig.width = 4, fig.height = 3}
-
-ggplot(data=select(scat, Length, Species), aes(x=Species, y=Length)) + geom_boxplot()
-ggplot(data=select(scat, Diameter, Species), aes(x=Species, y=Diameter)) + geom_boxplot()
-ggplot(data=select(scat, Taper, Species), aes(x = Species, y = Taper)) + geom_boxplot()
-ggplot(data=select(scat, TI, Species), aes(x = Species, y = TI)) + geom_boxplot()
-ggplot(data=select(scat, Mass, Species), aes(x = Species, y = Mass)) + geom_boxplot()
-ggplot(data=select(scat, d13C, Species), aes(x = Species, y = d13C)) + geom_boxplot()
-ggplot(data=select(scat, d15N, Species), aes(x = Species, y = d15N)) + geom_boxplot()
-ggplot(data=select(scat, CN, Species), aes(x = Species, y = CN)) + geom_boxplot()
-ggplot(data=select(scat, ropey, Species), aes(x = Species, y = ropey)) + geom_boxplot()
-ggplot(data=select(scat, segmented, Species), aes(x = Species, y = segmented)) + geom_boxplot()
-```
-From these observations, I believe that mass will be the best first predictor because of the differences in median values for the 3 species, and that `gray_fox` has little overlap with the other two in mass so we should be able to predict those well. CN, d15N, and diameter also look to be good predictors. Length looks to be the worst predictor because its overwhelmingly similar amongst the three species. Next is to find the true best predictors through forward feature selection.
-
-###4) Finding the best predictor
-
-I will start by first building the model best fit for Gray Fox classification.
-
-I built a training set from a sample of the points, and a validation set from the remaining data. With this I will iteratively select the best feature using a logisitic regression.
-
-```{r generate the partition for test and training sets}
-set.seed(1)
-inTraining <- createDataPartition(scat$Species_gray_fox, p = 0.7, list = FALSE)
-
-isBobcat <- factor(scat$Species_bobcat, labels=c("notBobcat", "isBobcat"))
-data.frame(scat, isBobcat)
-selected.vars <- c("Species", "isBobcat", "Species_gray_fox", "Species_coyote", "Species_bobcat", "Length", "Diameter", "Taper", "TI", "Mass", "d13C", "d15N", "CN", "ropey", "segmented")
-training <- scat[inTraining, selected.vars]
-test <- scat[-inTraining, selected.vars]
-
-scalar <- preProcess(training, method = c("center", "scale", "knnImpute"))
-training = predict(scalar, training)
-test <- predict(scalar, test)
-```
-
-```{r}
-scat.length.lm <- train(training$isBobcat ~ Length, data = training, method="glm", family="binomial")
-scat.length.lm <- glm(Species_gray_fox ~ Length, data=training, family="binomial")
-scat.diameter.lm <- glm(Species_gray_fox ~ Diameter, data=training, family="binomial")
-scat.taper.lm <- glm(Species_gray_fox ~ Taper, data=training, family="binomial")
-scat.ti.lm <- glm(Species_gray_fox ~ TI, data=training, family="binomial")
-scat.mass.lm <- glm(Species_gray_fox ~ Mass, data=training, family="binomial")
-scat.d13c.lm <- glm(Species_gray_fox ~ d13C, data=training, family="binomial")
-scat.d15n.lm <- glm(Species_gray_fox ~ d15N, data=training, family="binomial")
-scat.cn.lm <- glm(Species_gray_fox ~ CN, data=training, family="binomial")
-scat.ropey.lm <- glm(Species_gray_fox ~ ropey, data=training, family="binomial")
-scat.segmented.lm <- glm(Species_gray_fox ~ segmented, data=training, family="binomial")
-
-predict(scat.length.lm, test)
-
-accuracy(predict(scat.length.lm, test), test$Species_gray_fox)
-accuracy(predict(scat.diameter.lm, test), test$Species_gray_fox)
-accuracy(predict(scat.taper.lm, test), test$Species_gray_fox)
-accuracy(predict(scat.ti.lm, test), test$Species_gray_fox)
-accuracy(predict(scat.mass.lm, test), test$Species_gray_fox)
-accuracy(predict(scat.d13c.lm, test), test$Species_gray_fox)
-accuracy(predict(scat.d15n.lm, test), test$Species_gray_fox)
-accuracy(predict(scat.cn.lm, test), test$Species_gray_fox)
-accuracy(predict(scat.ropey.lm, test), test$Species_gray_fox)
-accuracy(predict(scat.segmented.lm, test), test$Species_gray_fox)
-
-```
-
-
-```{r producing single variable linear regressions}
+```{r previous model}
 set.seed(1) # set the seed so that the partition is always the same
 df.train.index <- sample(c(1:nrows), nrows* 0.7) #use 70% of the data as a training set
-selected.vars <- c("Species_gray_fox", "Species_coyote", "Species_bobcat", "Length", "Diameter", "Taper", "TI", "Mass", "d13C", "d15N", "CN", "ropey", "segmented")
-df.train <- scat[df.train.index, selected.vars]
-df.valid <- scat[-df.train.index, selected.vars]
+selected.vars <- c("Length", "Diameter", "Taper", "TI", "Mass", "d13C", "d15N", "CN", "ropey", "segmented")
+
+knn.vars <- c("Species", selected.vars)
+bobcat.vars <- c("Species_bobcat", selected.vars)
+coyote.vars <- c("Species_coyote", selected.vars)
+gray_fox.vars <- c("Species_gray_fox", selected.vars)
+
+df.train <- scat[df.train.index, knn.vars]
+df.valid <- scat[-df.train.index, knn.vars]
+
+df.class <- scat[-df.train.index, c("Species")]
+
 options(scipen = 999)
-```
 
-To start, I will look for variables with little varience in my set to eliminate ones with little predictive power by using caret preprocessing tools.
-
-
-```{r near zero varience}
-nearZeroVar(df.train, saveMetrics = TRUE)
-```
-My test set does not contain any near zero varience variables according to the column `nzv` in the above table, meaning none can be excluded right away
-
-Next is to check for correlated variables to only select ones with unique predictive power
-
-```{r correlated variables}
-findLinearCombos(df.train)
-```
-I did not find any linearly related variables, which is good. With this I can continue safely using any of my variables. I will first fit a model to answer the question *Does this animal scat sample come from a gray fox?*
-
-```{r select the first predictor}
-scat.length.lm <- lm(Species_gray_fox ~ Length, data = df.train)
-scat.diameter.lm <- lm(Species_gray_fox ~ Diameter, data=df.train)
-scat.taper.lm <- lm(Species_gray_fox ~ Taper, data=df.train)
-scat.ti.lm <- lm(Species_gray_fox ~ TI, data=df.train)
-scat.mass.lm <- lm(Species_gray_fox ~ Mass, data=df.train)
-scat.d13c.lm <- lm(Species_gray_fox ~ d13C, data=df.train)
-scat.d15n.lm <- lm(Species_gray_fox ~ d15N, data=df.train)
-scat.cn.lm <- lm(Species_gray_fox ~ CN, data=df.train)
-scat.ropey.lm <- lm(Species_gray_fox ~ ropey, data=df.train)
-scat.segmented.lm <- lm(Species_gray_fox ~ segmented, data=df.train)
-```
-
-To select a best predictor, I will run the models against the validation set and look for the most minimal RMSE.
-
-```{r test accuracy for validation}
-accuracy(predict(scat.length.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.diameter.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.taper.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.ti.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.mass.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.d13c.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.d15n.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.cn.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.ropey.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.segmented.lm, df.valid), df.valid$Species_gray_fox)
-
-```
-
-The lowest RMSE for my validation set was for the model using `CN` as its predictor. I will repeat feature selection for a second variable.
-
-###5) Repeating prediction with a second variable
-
-Repeat the selection process but with `CN` in every set
-
-```{r repeat selection for 2nd predictor}
-scat.length.lm <- lm(Species_gray_fox ~ CN + Length, data = df.train)
-scat.diameter.lm <- lm(Species_gray_fox ~ CN + Diameter, data=df.train)
-scat.taper.lm <- lm(Species_gray_fox ~ CN + Taper, data=df.train)
-scat.ti.lm <- lm(Species_gray_fox ~ CN + TI, data=df.train)
-scat.mass.lm <- lm(Species_gray_fox ~ CN + Mass, data=df.train)
-scat.d13c.lm <- lm(Species_gray_fox ~ CN + d13C, data=df.train)
-scat.d15n.lm <- lm(Species_gray_fox ~ CN + d15N, data=df.train)
-scat.ropey.lm <- lm(Species_gray_fox ~ CN + ropey, data=df.train)
-scat.segmented.lm <- lm(Species_gray_fox ~ CN + segmented, data=df.train)
-
-accuracy(predict(scat.length.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.diameter.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.taper.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.ti.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.mass.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.d13c.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.d15n.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.ropey.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.segmented.lm, df.valid), df.valid$Species_gray_fox)
-```
-`ropey` is our second best predictor in combination with `CN`. Looking back to our charts we see that a majority of the gray fox datapoints have `ropey` so it makes sense that this is a good predictor.
-
-###6) Repeat feature selection until there is no improvement
-Finally I will repeat feature selection until there is no improvement in the RMSE of the model. This way we will select a minimal amount of features that can predict if a scat sample came from a Gray Fox with some confidence that we aren't overfitting our training set.
-
-```{r repeat selection for 3rd predictor}
-scat.length.lm <- lm(Species_gray_fox ~ CN + ropey + Length, data = df.train)
-scat.diameter.lm <- lm(Species_gray_fox ~ CN + ropey + Diameter, data=df.train)
-scat.taper.lm <- lm(Species_gray_fox ~ CN + ropey + Taper, data=df.train)
-scat.ti.lm <- lm(Species_gray_fox ~ CN + ropey + TI, data=df.train)
-scat.mass.lm <- lm(Species_gray_fox ~ CN + ropey + Mass, data=df.train)
-scat.d13c.lm <- lm(Species_gray_fox ~ CN + ropey + d13C, data=df.train)
-scat.d15n.lm <- lm(Species_gray_fox ~ CN + ropey + d15N, data=df.train)
-scat.segmented.lm <- lm(Species_gray_fox ~ CN + ropey + segmented, data=df.train)
-
-accuracy(predict(scat.length.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.diameter.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.taper.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.ti.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.mass.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.d13c.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.d15n.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.segmented.lm, df.valid), df.valid$Species_gray_fox)
-```
-
-`Length` is our 3rd best predictor with a RMSE of 0.2895
-
-```{r repeat selection for 4th predictor}
-scat.diameter.lm <- lm(Species_gray_fox ~ CN + ropey + Length + Diameter, data=df.train)
-scat.taper.lm <- lm(Species_gray_fox ~ CN + ropey + Length + Taper, data=df.train)
-scat.ti.lm <- lm(Species_gray_fox ~ CN + ropey + Length + TI, data=df.train)
-scat.mass.lm <- lm(Species_gray_fox ~ CN + ropey + Length + Mass, data=df.train)
-scat.d13c.lm <- lm(Species_gray_fox ~ CN + ropey + Length + d13C, data=df.train)
-scat.d15n.lm <- lm(Species_gray_fox ~ CN + ropey + Length + d15N, data=df.train)
-scat.segmented.lm <- lm(Species_gray_fox ~ CN + ropey + Length + segmented, data=df.train)
-
-accuracy(predict(scat.diameter.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.taper.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.ti.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.mass.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.d13c.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.d15n.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.segmented.lm, df.valid), df.valid$Species_gray_fox)
-```
-
-`Taper` is our 4th best predictor with a RMSE of 0.287, however the model has improved by only 0.002. With this, I will cut off feature selection at 3 variables to avoid overfitting.
-
-```{r save the gray fox model}
-scat.gray.fox.lm <- lm(Species_gray_fox ~ CN + ropey + Length, data=df.train)
-```
-
-We can accept that our model for identifying a scat sample as a grey fox sample will use the 3 predictors: `CN`, `ropey`, and `Length`. Below I will continue the excercise for the other Species classifications.
-
-###7) Repeat the excercise for Bobcat and Coyote
-In this round of selection, I will build a model for classifying bobcat scat next.
-
-
-```{r select the first predictor for bobcat}
-scat.length.lm <- lm(Species_bobcat ~ Length, data = df.train)
-scat.diameter.lm <- lm(Species_bobcat ~ Diameter, data=df.train)
-scat.taper.lm <- lm(Species_bobcat ~ Taper, data=df.train)
-scat.ti.lm <- lm(Species_bobcat ~ TI, data=df.train)
-scat.mass.lm <- lm(Species_bobcat ~ Mass, data=df.train)
-scat.d13c.lm <- lm(Species_bobcat ~ d13C, data=df.train)
-scat.d15n.lm <- lm(Species_bobcat ~ d15N, data=df.train)
-scat.cn.lm <- lm(Species_bobcat ~ CN, data=df.train)
-scat.ropey.lm <- lm(Species_bobcat ~ ropey, data=df.train)
-scat.segmented.lm <- lm(Species_bobcat ~ segmented, data=df.train)
-
-accuracy(predict(scat.length.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.diameter.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.taper.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.ti.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.mass.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.d13c.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.d15n.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.cn.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.ropey.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.segmented.lm, df.valid), df.valid$Species_bobcat)
-```
-`d13c` was the best first predictor for coyote scat classification based on RMSE, with a vlaue of 0.4375. I will continue selection for further features.
-
-```{r select the second predictor for bobcat}
-scat.length.lm <- lm(Species_bobcat ~ d13C + Length, data = df.train)
-scat.diameter.lm <- lm(Species_bobcat ~ d13C + Diameter, data=df.train)
-scat.taper.lm <- lm(Species_bobcat ~ d13C + Taper, data=df.train)
-scat.ti.lm <- lm(Species_bobcat ~ d13C + TI, data=df.train)
-scat.mass.lm <- lm(Species_bobcat ~ d13C + Mass, data=df.train)
-scat.d15n.lm <- lm(Species_bobcat ~ d13C + d15N, data=df.train)
-scat.cn.lm <- lm(Species_bobcat ~ CN, d13C + CN, data=df.train)
-scat.ropey.lm <- lm(Species_bobcat ~ d13C + ropey, data=df.train)
-scat.segmented.lm <- lm(Species_bobcat ~ d13C + segmented, data=df.train)
-
-accuracy(predict(scat.length.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.diameter.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.taper.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.ti.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.mass.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.d15n.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.cn.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.ropey.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.segmented.lm, df.valid), df.valid$Species_bobcat)
+bobcat.train <- scat[df.train.index, bobcat.vars]
+bobcat.test <- scat[-df.train.index, bobcat.vars]
+coyote.train <- scat[df.train.index, coyote.vars]
+coyote.test <- scat[-df.train.index, coyote.vars]
+gray.fox.train <- scat[df.train.index, gray_fox.vars]
+gray.fox.test <- scat[-df.train.index, gray_fox.vars]
 ```
 
 
-
-`TI` was the 2nd best predictor, with an RMSE of 0.4361. With only a marginal improvement in RMSE. I will attempt a single additional paramater to see if RMSE is reduced by more than 0.001.
-
-```{r select the third predictor for bobcat}
-scat.length.lm <- lm(Species_bobcat ~ d13C + TI + Length, data = df.train)
-scat.diameter.lm <- lm(Species_bobcat ~ d13C + TI + Diameter, data=df.train)
-scat.taper.lm <- lm(Species_bobcat ~ d13C + TI + Taper, data=df.train)
-scat.mass.lm <- lm(Species_bobcat ~ d13C + TI + Mass, data=df.train)
-scat.d15n.lm <- lm(Species_bobcat ~ d13C + TI + d15N, data=df.train)
-scat.cn.lm <- lm(Species_bobcat ~ CN, d13C + TI + CN, data=df.train)
-scat.ropey.lm <- lm(Species_bobcat ~ d13C + TI + ropey, data=df.train)
-scat.segmented.lm <- lm(Species_bobcat ~ d13C + TI + segmented, data=df.train)
-
-accuracy(predict(scat.length.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.diameter.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.taper.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.ti.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.mass.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.d15n.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.cn.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.ropey.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.segmented.lm, df.valid), df.valid$Species_bobcat)
+```{r fit the model}
+base.knn <- train(Species ~ d13C + Mass + CN + Length, data = df.train, method = "knn")
+confusionMatrix(predict(base.knn, df.valid), df.valid$Species)
 ```
 
-With virtually no improvement in RMSE i will stop at 2 preditors `d13C` and `TI`. This makes sense when considering the original graphs, bobcats had similarities with one of the other two species in almost every feature, making it hard to differentiate between coyotes and gray foxes. This may be able to be solved by having a good model at predicting coyotes, because we can use negatives on both the coyote model and the gray fox model as a clue that our sample is for a bobcat.
+Using the same set of initial predictors, training set, and test set, I will re create the model using a logistic regression
 
-```{r}
-scat.bobcat.lm <- lm(Species_bobcat ~ d13C + TI, data=df.train)
+###2) First round selection
+
+Since logistic regression is for binary classification, we need to answer to simplify our original question from "What species is this sample from?" To start I will begin with whether or not a sample is from a bobcat.
+
+
+```{r logistic first round}
+base.log <- glm(Species_bobcat ~ 1, data = bobcat.train, family = "binomial")
+
+bobcat.log.forward <- step(base.log, scope = ~ Length + Diameter + Taper + TI + Mass + d13C + d15N + CN + ropey + segmented, steps = 1, direction = "forward")
+
+summary(bobcat.log.forward)
+
+bobcat.predictions <- predict(bobcat.log.forward, bobcat.test, type = "response")
+confusionMatrix(factor(as.numeric(bobcat.predictions > 0.5)), factor(bobcat.test$Species_bobcat))
 ```
 
+The first feature selection using the logistic model was `CN`, with an accuracy of prediction of 67.86%. I will repeat feature selection using only the best 5 predictors from the previous step `segmented`, `d13C`, `d15N`, `Diameter`, and `TI` 
 
-I will finally select features for a coyote model
+```{r logistic second round}
+bobcat.log.forward <- step(bobcat.log.forward, scope = ~ Diameter + TI + d13C + d15N + CN + segmented, steps = 1, direction = "forward")
 
-```{r select the first predictor for coyote}
-scat.length.lm <- lm(Species_coyote ~ Length, data = df.train)
-scat.diameter.lm <- lm(Species_coyote ~ Diameter, data=df.train)
-scat.taper.lm <- lm(Species_coyote ~ Taper, data=df.train)
-scat.ti.lm <- lm(Species_coyote ~ TI, data=df.train)
-scat.mass.lm <- lm(Species_coyote ~ Mass, data=df.train)
-scat.d13c.lm <- lm(Species_coyote ~ d13C, data=df.train)
-scat.d15n.lm <- lm(Species_coyote ~ d15N, data=df.train)
-scat.cn.lm <- lm(Species_coyote ~ CN, data=df.train)
-scat.ropey.lm <- lm(Species_coyote ~ ropey, data=df.train)
-scat.segmented.lm <- lm(Species_coyote ~ segmented, data=df.train)
+summary(bobcat.log.forward)
 
-accuracy(predict(scat.length.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.diameter.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.taper.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.ti.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.mass.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.d13c.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.d15n.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.cn.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.ropey.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.segmented.lm, df.valid), df.valid$Species_coyote)
+bobcat.predictions <- predict(bobcat.log.forward, bobcat.test, type = "response")
+confusionMatrix(factor(as.numeric(bobcat.predictions > 0.5)), factor(bobcat.test$Species_bobcat))
 ```
 
-The lowest RMSE and best predictor is `d13C`, with a RMSE of 0.3294
+Our second predictor is `d13C`, with an accuracy of 82.14%. The accuracy improved by including the second feature.
 
-```{r select the second predictor for coyote}
-scat.length.lm <- lm(Species_coyote ~ d13C + Length, data = df.train)
-scat.diameter.lm <- lm(Species_coyote ~ d13C +Diameter, data=df.train)
-scat.taper.lm <- lm(Species_coyote ~ d13C +Taper, data=df.train)
-scat.ti.lm <- lm(Species_coyote ~ d13C +TI, data=df.train)
-scat.mass.lm <- lm(Species_coyote ~ d13C +Mass, data=df.train)
-scat.d15n.lm <- lm(Species_coyote ~ d13C +d15N, data=df.train)
-scat.cn.lm <- lm(Species_coyote ~ d13C +CN, data=df.train)
-scat.ropey.lm <- lm(Species_coyote ~ d13C +ropey, data=df.train)
-scat.segmented.lm <- lm(Species_coyote ~ d13C +segmented, data=df.train)
+Finally repeating selection until no improvement is observed
 
-accuracy(predict(scat.length.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.diameter.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.taper.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.ti.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.mass.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.d15n.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.cn.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.ropey.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.segmented.lm, df.valid), df.valid$Species_coyote)
+```{r repeat selection}
+bobcat.log.forward <- step(bobcat.log.forward, scope = ~ Diameter + TI + d13C + d15N + CN + segmented, direction = "forward")
+
+summary(bobcat.log.forward)
+
+bobcat.predictions <- predict(bobcat.log.forward, bobcat.test, type = "response")
+confusionMatrix(factor(as.numeric(bobcat.predictions > 0.5)), factor(bobcat.test$Species_bobcat))
 ```
 
-`Diameter` is the second best predictor with a RMSE of 0.2832
+Our final model predicts Species.bobcat using `CN` + `d13C` + `d15N` + `Diameter`
 
-```{r select the third predictor for coyote}
-scat.length.lm <- lm(Species_coyote ~ d13C + Diameter + Length, data = df.train)
-scat.taper.lm <- lm(Species_coyote ~ d13C + Diameter + Taper, data=df.train)
-scat.ti.lm <- lm(Species_coyote ~ d13C + Diameter + TI, data=df.train)
-scat.mass.lm <- lm(Species_coyote ~ d13C + Diameter + Mass, data=df.train)
-scat.d15n.lm <- lm(Species_coyote ~ d13C + Diameter + d15N, data=df.train)
-scat.cn.lm <- lm(Species_coyote ~ d13C + Diameter + CN, data=df.train)
-scat.ropey.lm <- lm(Species_coyote ~ d13C + Diameter + ropey, data=df.train)
-scat.segmented.lm <- lm(Species_coyote ~ d13C + Diameter + segmented, data=df.train)
+It had an accuracy of 82%. I will repeat this process quickly for Gray Fox and Coyote classification
 
-accuracy(predict(scat.length.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.taper.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.ti.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.mass.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.d15n.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.cn.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.ropey.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.segmented.lm, df.valid), df.valid$Species_coyote)
+```{r coyote selection}
+base.log <- glm(Species_coyote ~ 1, data = coyote.train, family = "binomial")
+
+coyote.log.forward <- step(base.log, scope = ~ Length + Diameter + Taper + TI + Mass + d13C + d15N + CN + ropey + segmented, direction = "forward")
+
+summary(coyote.log.forward)
+
+coyote.predictions <- predict(coyote.log.forward, coyote.test, type = "response")
+confusionMatrix(factor(as.numeric(coyote.predictions > 0.5)), factor(coyote.test$Species_coyote))
 ```
 
-`Segmented` is our third best predictor with a RMSE of 0.2751
+Our coyote model has a 96.43% accuracy with the predictors: `d15N` + `d13C` + `Diameter` + `segmented` + `Length`
 
-```{r select the fourth predictor for coyote}
-scat.length.lm <- lm(Species_coyote ~ d13C + Diameter + segmented + Length, data = df.train)
-scat.taper.lm <- lm(Species_coyote ~ d13C + Diameter + segmented + Taper, data=df.train)
-scat.ti.lm <- lm(Species_coyote ~ d13C + Diameter + segmented + TI, data=df.train)
-scat.mass.lm <- lm(Species_coyote ~ d13C + Diameter + segmented + Mass, data=df.train)
-scat.d15n.lm <- lm(Species_coyote ~ d13C + Diameter + segmented + d15N, data=df.train)
-scat.cn.lm <- lm(Species_coyote ~ d13C + Diameter + segmented + CN, data=df.train)
-scat.ropey.lm <- lm(Species_coyote ~ d13C + Diameter + segmented + ropey, data=df.train)
+```{r gray fox selection}
+base.log <- glm(Species_gray_fox ~ 1, data = gray.fox.train, family = "binomial")
 
-accuracy(predict(scat.length.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.taper.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.ti.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.mass.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.d15n.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.cn.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.ropey.lm, df.valid), df.valid$Species_coyote)
+gray.fox.log.forward <- step(base.log, scope = ~ Length + Diameter + Taper + TI + Mass + d13C + d15N + CN + ropey + segmented, direction = "forward")
+
+summary(gray.fox.log.forward)
+
+gray.fox.predictions <- predict(gray.fox.log.forward, gray.fox.test, type = "response")
+confusionMatrix(factor(as.numeric(gray.fox.predictions > 0.5)), factor(gray.fox.test$Species_gray_fox))
 ```
 
-`CN` is the fourth best predictor with a RMSE of 0.2681
+Our gray fox model had an accuracy of 82.14% using the predictors `Mass` + `CN` + `Taper` + `d13C`
 
-```{r select the fifth predictor for coyote}
-scat.length.lm <- lm(Species_coyote ~ d13C + Diameter + segmented + CN + Length, data = df.train)
-scat.taper.lm <- lm(Species_coyote ~ d13C + Diameter + segmented + CN + Taper, data=df.train)
-scat.ti.lm <- lm(Species_coyote ~ d13C + Diameter + segmented + CN + TI, data=df.train)
-scat.mass.lm <- lm(Species_coyote ~ d13C + Diameter + segmented + CN + Mass, data=df.train)
-scat.d15n.lm <- lm(Species_coyote ~ d13C + Diameter + segmented + CN + d15N, data=df.train)
-scat.ropey.lm <- lm(Species_coyote ~ d13C + Diameter + segmented + CN + ropey, data=df.train)
+```{r ensemble the models}
+predictions <- data.frame(df.class,  bobcat.predictions, coyote.predictions, gray.fox.predictions)
 
-accuracy(predict(scat.length.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.taper.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.ti.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.mass.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.d15n.lm, df.valid), df.valid$Species_coyote)
-accuracy(predict(scat.ropey.lm, df.valid), df.valid$Species_coyote)
+bobcatIsPredicted <- function(bobcat, coyote, gray_fox) {
+  bobcat > coyote && bobcat > gray_fox
+}
+
+coyoteIsPredicted <- function(bobcat, coyote, gray_fox) {
+  coyote > bobcat && coyote > gray_fox
+}
+
+addClass <- function(bobcat, coyote, fox) {
+  if(bobcatIsPredicted(bobcat, coyote, fox)) {
+    "bobcat"
+  } else if (coyoteIsPredicted(bobcat, coyote, fox)) {
+    "coyote"
+  } else {
+    "gray_fox"
+  }
+}
+
+predictions <- predictions %>% rowwise() %>% mutate(Predicted.Class = addClass(bobcat.predictions, coyote.predictions, gray.fox.predictions))
+
+predictions$Predicted.Class <- factor(predictions$Predicted.Class)
+
+confusionMatrix(predictions$Predicted.Class, predictions$df.class)
+
 ```
-
-`Mass` is our fifth best predictor. Because of our dataset size we should be cautious about adding too many variables, which from the text I learned could lead to overfitting. I will end with the coyote model using the predictors: `d13C`, `Diameter`, `Segmented`, `CN`, and `Mass`
-
-```{r}
-scat.coyote.lm <- lm(Species_coyote ~ d13C + Diameter + segmented + CN + Mass, data=df.train)
-```
-
-### Conclusion
-
-```{r performance of all 3 models}
-accuracy(predict(scat.gray.fox.lm, df.valid), df.valid$Species_gray_fox)
-accuracy(predict(scat.bobcat.lm, df.valid), df.valid$Species_bobcat)
-accuracy(predict(scat.coyote.lm, df.valid), df.valid$Species_coyote)
-
-coyotePredictions <- predict(scat.coyote.lm, df.valid)
-bobcatPredictions <- predict(scat.bobcat.lm, df.valid)
-grayFoxPredictions <- predict(scat.gray.fox.lm, df.valid)
-
-modelResults <- data.frame(df.valid$Species_gray_fox, df.valid$Species_coyote, df.valid$Species_bobcat, grayFoxPrediction = grayFoxPredictions, coyotePrediction = coyotePredictions, bobcatPrediciton = bobcatPredictions)
-
-head(modelResults)
-```
-
-From this exercise, I was able to build 3 models took a subset of the available predictors to predict if a scat sample came from a gray fox, bobcat, or coyote respectively. The models had varying performance, with the lowest being the bobcat model with an RMSE of 0.4362, next the gray fox model with an RMSE of 0.2895, and finally the coyote model which had the lowest RMSE at a value of 0.2541 against our validation set. Together these three models can be used to predict which species any new samples collected came from. To have the best results at classifying the results of all three models can be compared manually or weighted to build an automatic data mining processing for classification. Each model relies on a different number of predictors, including using different predictors all together.
-
-The head shows a portion of the model results and the predictions rounded to the nearest whole number are an accurate representation of the actual species that produced the sample in these six. This shows how multiple models can be constructed  to solve our problem.
-
