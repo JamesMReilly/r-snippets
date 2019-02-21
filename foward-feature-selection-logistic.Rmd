@@ -1,5 +1,6 @@
 ---
 title: "Forward Feature Selection - Animal Scat"
+author: "Jim Reilly"
 output:
   pdf_document: default
   html_document:
@@ -65,7 +66,9 @@ base.knn <- train(Species ~ d13C + Mass + CN + Length, data = df.train, method =
 confusionMatrix(predict(base.knn, df.valid), df.valid$Species)
 ```
 
-Using the same set of initial predictors, training set, and test set, I will re create the model using a logistic regression
+Our previous model using knn to fit the data had a classification accuracy of 71.43%
+
+Using the same set of initial predictors, training set, and test set, I will re create the model using a logistic regression. 
 
 ###2) First round selection
 
@@ -110,6 +113,8 @@ confusionMatrix(factor(as.numeric(bobcat.predictions > 0.5)), factor(bobcat.test
 Our final model predicts Species.bobcat using `CN` + `d13C` + `d15N` + `Diameter`
 
 It had an accuracy of 82%. I will repeat this process quickly for Gray Fox and Coyote classification
+
+### 5) Repeat selection
 
 ```{r coyote selection}
 base.log <- glm(Species_coyote ~ 1, data = coyote.train, family = "binomial")
@@ -165,3 +170,9 @@ predictions$Predicted.Class <- factor(predictions$Predicted.Class)
 confusionMatrix(predictions$Predicted.Class, predictions$df.class)
 
 ```
+
+I ran all 3 logistic models and used a function to ensemble them together. I selected the greatest propensity score as the classification as a simple approach to combining the three classification models into the original question: "what species does this sample come from?"
+
+I got a final performance of 78.57% accurate classifications. Which is better than the previous model using the knn.
+
+I found that adding features to the logistic regression had a minimal impact on the accuracy. In the portion where I use the `step` function to quickly evaluate the models for all predictors on the coyotes and the gray fox, I saw that every step almost never negatively impacted the AIC score. If it was reduced it was minimal in comparison to the accuracy sacrifices that the kNN fitting did. Linear regression can also solve this problem by assigning near zero coefficients to bad predictors. 
