@@ -3,8 +3,8 @@ title: "Heart Disease"
 author: "Jim Reilly"
 date: "February 13, 2019"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -12,12 +12,9 @@ knitr::opts_chunk$set(echo = TRUE)
 rm(list=ls())
 ```
 
-
-
 ## Summary
 
-In this excercise I select the best features for classifying heart disease from `Sex`, `cp`, `fbs`, `restecg`, `thalach`, `exang`, `oldpeak`, `Slope`, `Ca`, and `Thal`.
-
+In this excercise I select the best features for classifying heart disease from `Sex`, `cp`, `fbs`, `restecg`, `thalach`, `exang`, `oldpeak`, `Slope`, `Ca`, and `Thal`. I identify a model using only 4 of these predictors .
 
 ## Libraries
 ```{r open libraries, message=FALSE}
@@ -27,13 +24,12 @@ library(caret)
 ```
 
 
-## Data and Structure 
+## Data and structure 
 
 ```{r load the heart data}
 heart <- read.csv(file = 'data/heart.csv', header = TRUE, sep = ',')
 #rename a likely formating error form the age column
 heart <- heart %>% rename(age = 'ï..age')
-
 ```
 
 ```{r select only the predictors}
@@ -47,12 +43,12 @@ The dataset contains `r dims[1]` records with `r dims[2] - 1` variables for pred
 
 ## Modeling setup
 
-Before we can build a model, we need a reproducable train and validation set. I use 70% of the set as a training set and the remaining 30% for validation of the model
+Before we can build a model, we need a reproducable train and validation set. I use 80% of the set as a training set and the remaining 20% for validation of the model
 
 ```{r split the set}
 set.seed(104)
 
-trainIndex <- sample(1:nrow(heart), nrow(heart) * 0.7)
+trainIndex <- sample(1:nrow(heart), nrow(heart) * 0.8)
 heart.train <- heart[trainIndex, ]
 heart.valid <- heart[-trainIndex, ]
 ```
@@ -62,19 +58,35 @@ heart.valid <- heart[-trainIndex, ]
 For our first pass, we will select the best feature to begin our model based on lowest AIC and also the 5 next best features to use for the remaining selection rounds.
 
 ```{r select the best predictor}
-heart.knn <- step()
+#start with a base model, no predictors
+heart.glm <- glm(target ~ 1, data = heart.train, family = "binomial")
+
+heart.glm.one <- step(heart.glm, scope = ~ sex + cp + fbs + restecg + thalach + exang + oldpeak + slope + ca + thal, steps = 1, direction = "forward")
 ```
 
-## Selection
+The `step` function is used to select the best model from the given scope by means of AIC. AIC is a statistical comparison of models that combines goodness of fit and number of predictors used. It aims to find a model that is good without over fitting by adding too many predictors. The function above generated a single parameter model using each of the 10 predictors listed in its scope and selected the best performer, in this case `cp`.
 
-I have 13 features to be used in selection:
+In the next step I will discard the 5 worst performing predictors: `fbs`, `restecg`, `sex`, `thal`, and `slope`. I will produce use the same forward feature selection process to select the features for the model with the remaining: `cp`, `oldpeak`, `ca`, `exang`, and `thalach`.
 
-`Age`, `Sex`, `cp`, `trestbps`, `chol`, `fbs`, `restecg`, `thalach`, `exang`, `oldpeak`, `Slope`, `Ca`, `Thal`
+```{r repeat forward feature selection til completion}
+heart.glm <- step(heart.glm, scope = ~ cp + thalach + exang + oldpeak + ca, direction = "forward")
+```
 
-In order to proceed to modeling, I will eliminate the 3 features I believe to be the worst predictors. Reviewing the above charts I will eliminate Age, trestbps, and chol and proceed with the 10 predictors:
+The best parameters to add were `cp`, `oldpeak`, `ca`, and `exang`, leaving out only `thalach` from the 5 we used in this step. Now we must evaluate our model for accuracy.
 
-`Sex`, `cp`, `fbs`, `restecg`, `thalach`, `exang`, `oldpeak`, `Slope`, `Ca`, `Thal`
+## Testing
+
+To test our model we will evaulate the the prediction for each new data point in the validation set. This data was not used in training. Then we will take each score, a rating between 0.0 and 1.0 and round it to its closest end. In this case any value greater than a 0.5 will be treated as a prediction for heart disease and a value less than or equal to 0.5 will be counted as not having heart disease. We could adjust the reference point we use if we wanted to adjust the sensitivty of the model to assign one class more frequently.
+
+```{r validation}
+heart.predictions <- predict(heart.glm, heart.valid, type = "response")
+confusionMatrix(factor(as.numeric(heart.predictions > 0.5)), heart.valid$target)
+```
+
+In the end the model correctly predicted 17 patients that did not have heart disease (True Negative) and 28 patients that did have heart disease (True postive). We also had 8 patients incorrectly predicted each way (False positive, false negative). This leaves us with a final model accuracy of 73.77%.
 
 ## Conclusion
 
-In this excercise I have plotted visualizations that have allowed me to see the distributions between the available predictors in the dataset. From these observations I selected what I believe to be the 10 best predictors for a model that predicts whether a new patient has heart disease.
+Using the model: `target` ~ `cp` + `oldpeak` + `ca` + `exang` a classification for whether a patient has heart disease or not can be found with 73.77% accuracy. The features were selected using forward feature selection via the `step` function from the `caret` library.
+
+
