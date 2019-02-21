@@ -1,0 +1,204 @@
+---
+title: "Ad Clicking"
+author: "Jim Reilly"
+date: "February 18, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r clear the global env}
+rm(list=ls())
+```
+
+```{r message=FALSE}
+library(dplyr)
+library(ggplot2)
+```
+
+###1) Loading the data
+
+Our data is a .csv with 1,000,000 entries. We must also convert a couple columns to factors.
+
+```{r load the data}
+ads <- read.csv(file = 'data/criteo_ad_click_sampled.csv', header = FALSE)
+```
+
+###2) Transform the data
+
+We need to transform some of our columns before we can build regressions. I will convert the label (column V1) to a factor so that we can build a binary classifier later.
+
+```{r mutate the dataset}
+ads <- ads %>% mutate(V1 = factor(V1))
+
+head(ads)
+```
+
+###3) Exploratory Analysis
+
+We will look at some preliminary features to decide what variables might be good predictors and to better understand the available data
+
+```{r summary of the set}
+clicks <- summary(ads$V1)
+```
+We have `r clicks[1]` no clicks and `r clicks[2]` clicks. Since we care more about the clicks than the no clicks we might consider some oversampling as described in the text.
+
+We also have a very large quantity of data. I will produce my visualizations off of a sample for performance concerns.
+
+```{r random sample with seed}
+set.seed(4747) # set seed for reproducability
+
+ads.sample.index <- sample(1:nrow(ads), 100000)
+
+ads.sample <- ads[ads.sample.index, ]
+```
+
+```{r visualization of V2}
+v2.plot <- ggplot(ads.sample, aes(x = V1, y = V2))
+
+v2.plot + geom_boxplot()
+v2.plot + geom_jitter()
+```
+
+```{r visualization of V3}
+v3.plot <- ggplot(ads.sample, aes(x = V1, y = V3))
+
+v3.plot + geom_boxplot()
+v3.plot + geom_jitter()
+```
+
+```{r visualization of V4}
+v4.plot <- ggplot(ads.sample, aes(x = V1, y = V4))
+
+v4.plot + geom_boxplot()
+v4.plot + geom_jitter()
+```
+
+```{r visualization of V5}
+v5.plot <- ggplot(ads.sample, aes(x = V1, y = V5))
+
+v5.plot + geom_boxplot()
+v5.plot + geom_jitter()
+```
+
+
+```{r visualization of V6}
+v6.plot <- ggplot(ads.sample, aes(x = V1, y = V6))
+
+v6.plot + geom_boxplot()
+v6.plot + geom_jitter()
+```
+
+```{r visualization of V7}
+v7.plot <- ggplot(ads.sample, aes(x = V1, y = V7))
+
+v7.plot + geom_boxplot()
+v7.plot + geom_jitter()
+```
+
+```{r visualization of V8}
+v8.plot <- ggplot(ads.sample, aes(x = V1, y = V8))
+
+v8.plot + geom_boxplot()
+v8.plot + geom_jitter()
+```
+
+```{r visualization of V9}
+v9.plot <- ggplot(ads.sample, aes(x = V1, y = V9))
+
+v9.plot + geom_boxplot()
+v9.plot + geom_jitter()
+```
+
+```{r visualization of V10}
+v10.plot <- ggplot(ads.sample, aes(x = V1, y = V10))
+
+v10.plot + geom_boxplot()
+v10.plot + geom_jitter()
+```
+
+```{r visualization of V11}
+v11.plot <- ggplot(ads.sample, aes(x = V1, y = V11))
+
+v11.plot + geom_boxplot()
+v11.plot + geom_jitter()
+```
+
+```{r visualization of V12}
+v12.plot <- ggplot(ads.sample, aes(x = V1, y = V12))
+
+v12.plot + geom_boxplot()
+v12.plot + geom_jitter()
+```
+
+```{r visualization of V13}
+v13.plot <- ggplot(ads.sample, aes(x = V1, y = V13))
+
+v13.plot + geom_boxplot()
+v13.plot + geom_jitter()
+```
+
+```{r visualization of V14}
+v14.plot <- ggplot(ads.sample, aes(x = V1, y = V14))
+
+v14.plot + geom_boxplot()
+v14.plot + geom_jitter()
+```
+
+```{r visualization of V15}
+v15.plot <- ggplot(ads.sample, aes(x = V1, y = V15))
+
+v15.plot + geom_boxplot()
+v15.plot + geom_jitter()
+```
+
+```{r visualization of V16}
+v16.plot <- ggplot(ads.sample, aes(x = V1, y = V16))
+
+v16.plot + geom_boxplot()
+v16.plot + geom_jitter()
+```
+
+```{r visualization of V17}
+v17.plot <- ggplot(ads.sample, aes(x = V1, y = V17))
+
+v17.plot + geom_boxplot()
+v17.plot + geom_jitter()
+```
+
+```{r visualization of V18}
+v18.plot <- ggplot(ads.sample, aes(x = V1, y = V18))
+
+v18.plot + geom_boxplot()
+v18.plot + geom_jitter()
+```
+
+```{r visualization of V19}
+v19.plot <- ggplot(ads.sample, aes(x = V1, y = V19))
+
+v19.plot + geom_boxplot()
+v19.plot + geom_jitter()
+```
+
+```{r visualization of V20}
+v20.plot <- ggplot(ads.sample, aes(x = V1, y = V20))
+
+v20.plot + geom_boxplot()
+v20.plot + geom_jitter()
+```
+
+```{r visualization of V21}
+v21.plot <- ggplot(ads.sample, aes(x = V1, y = V21))
+
+v21.plot + geom_boxplot()
+v21.plot + geom_jitter()
+```
+
+```{r visualization of V22}
+v22.plot <- ggplot(ads.sample, aes(x = V1, y = V22))
+
+v22.plot + geom_boxplot()
+v22.plot + geom_jitter()
+```

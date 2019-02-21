@@ -1,0 +1,80 @@
+---
+title: "Heart Disease"
+author: "Jim Reilly"
+date: "February 13, 2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+```
+
+
+
+## Summary
+
+In this excercise I select the best features for classifying heart disease from `Sex`, `cp`, `fbs`, `restecg`, `thalach`, `exang`, `oldpeak`, `Slope`, `Ca`, and `Thal`.
+
+
+## Libraries
+```{r open libraries, message=FALSE}
+library(ggplot2)
+library(dplyr)
+library(caret)
+```
+
+
+## Data and Structure 
+
+```{r load the heart data}
+heart <- read.csv(file = 'data/heart.csv', header = TRUE, sep = ',')
+#rename a likely formating error form the age column
+heart <- heart %>% rename(age = 'ï..age')
+
+```
+
+```{r select only the predictors}
+heart <- heart %>% select(target, sex, cp, fbs, restecg, thalach, exang, oldpeak, slope, ca, thal)
+heart$target <- factor(heart$target)
+head(heart)
+dims <- dim(heart)
+```
+
+The dataset contains `r dims[1]` records with `r dims[2] - 1` variables for prediction. We also have a label for each patient
+
+## Modeling setup
+
+Before we can build a model, we need a reproducable train and validation set. I use 70% of the set as a training set and the remaining 30% for validation of the model
+
+```{r split the set}
+set.seed(104)
+
+trainIndex <- sample(1:nrow(heart), nrow(heart) * 0.7)
+heart.train <- heart[trainIndex, ]
+heart.valid <- heart[-trainIndex, ]
+```
+
+## Feature selection
+
+For our first pass, we will select the best feature to begin our model based on lowest AIC and also the 5 next best features to use for the remaining selection rounds.
+
+```{r select the best predictor}
+heart.knn <- step()
+```
+
+## Selection
+
+I have 13 features to be used in selection:
+
+`Age`, `Sex`, `cp`, `trestbps`, `chol`, `fbs`, `restecg`, `thalach`, `exang`, `oldpeak`, `Slope`, `Ca`, `Thal`
+
+In order to proceed to modeling, I will eliminate the 3 features I believe to be the worst predictors. Reviewing the above charts I will eliminate Age, trestbps, and chol and proceed with the 10 predictors:
+
+`Sex`, `cp`, `fbs`, `restecg`, `thalach`, `exang`, `oldpeak`, `Slope`, `Ca`, `Thal`
+
+## Conclusion
+
+In this excercise I have plotted visualizations that have allowed me to see the distributions between the available predictors in the dataset. From these observations I selected what I believe to be the 10 best predictors for a model that predicts whether a new patient has heart disease.
