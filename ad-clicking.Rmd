@@ -16,6 +16,10 @@ rm(list=ls())
 ```{r message=FALSE}
 library(dplyr)
 library(ggplot2)
+library(rpart)
+library(rpart.plot)
+library(caret)
+library(randomForest)
 ```
 
 ###1) Loading the data
@@ -50,7 +54,7 @@ We also have a very large quantity of data. I will produce my visualizations off
 ```{r random sample with seed}
 set.seed(4747) # set seed for reproducability
 
-ads.sample.index <- sample(1:nrow(ads), 100000)
+ads.sample.index <- sample(1:nrow(ads), 10000)
 
 ads.sample <- ads[ads.sample.index, ]
 ```
@@ -201,4 +205,32 @@ v22.plot <- ggplot(ads.sample, aes(x = V1, y = V22))
 
 v22.plot + geom_boxplot()
 v22.plot + geom_jitter()
+```
+
+V5-V10 and V14 show a pattern where there seems to be a higher median value for the `0` target vs. the `1`. I would assume that these will be identified as better predictors than some of the other choices. Of the factors, V15 - V18 seem to have a skew in the number of points belonging to each class for some factor values. The remaining factors have too low variance between the two targets or if there is a major difference the sample size in that factor appears small on the jitter plot (which is significant for 100,000 records). In order to best reason with the factors individually I convert them to dummy variables with a 0 or 1 encoding.
+
+```{r ads logistic}
+ads.sample <- fastDummies::dummy_cols(ads.sample)
+
+
+ads.sample.glm <- glm(V1 ~ ., data = ads.sample, family = "binomial")
+ads.sample.glm <- step(ads.sample.glm,  direction = "backward")
+```
+
+```{r test}
+default.ct <- rpart(V1 ~ ., data = ads.sample, method = "class")
+prp(default.ct, type = 1, extra = 1, under = TRUE, split.font = 1, varlen = -10)
+default.ct.pred <- predict(default.ct, ads.sample, type = "class")
+confusionMatrix(default.ct.pred, ads.sample$V1)
+
+default.ct <- rpart(V1 ~ ., data = ads.sample, method = "class")
+default.ct.pred <- predict(default.ct, ads, type = "class")
+confusionMatrix(default.ct.pred, ads$V1)
+
+ads.ct <- rpart(V1 ~ ., data = ads, method = "class")
+ads.ct.pred <- predict(ads.ct, ads, type = "class")
+confusionMatrix(ads.ct.pred, ads$V1)
+prp(ads.ct, type = 1, extra = 1, under = TRUE, split.font = 1, varlen = -10)
+
+ads.sample.rf <- randomForest(V1 ~ ., data = ads.sample, ntree = 100, mtry = 4, nodesize = 5, importance = TRUE)
 ```
