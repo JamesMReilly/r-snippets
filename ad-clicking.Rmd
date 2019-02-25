@@ -2,7 +2,9 @@
 title: "Ad Clicking"
 author: "Jim Reilly"
 date: "February 18, 2019"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -55,6 +57,7 @@ We also have a very large quantity of data. I will produce my visualizations off
 set.seed(4747) # set seed for reproducability
 
 ads.sample.index <- sample(1:nrow(ads), 10000)
+ads.big.sample.index <- sample(1:nrow(ads), 100000)
 
 ads.sample <- ads[ads.sample.index, ]
 ```
@@ -209,13 +212,13 @@ v22.plot + geom_jitter()
 
 V5-V10 and V14 show a pattern where there seems to be a higher median value for the `0` target vs. the `1`. I would assume that these will be identified as better predictors than some of the other choices. Of the factors, V15 - V18 seem to have a skew in the number of points belonging to each class for some factor values. The remaining factors have too low variance between the two targets or if there is a major difference the sample size in that factor appears small on the jitter plot (which is significant for 100,000 records). In order to best reason with the factors individually I convert them to dummy variables with a 0 or 1 encoding.
 
-```{r ads logistic}
-ads.sample <- fastDummies::dummy_cols(ads.sample)
-
-
-ads.sample.glm <- glm(V1 ~ ., data = ads.sample, family = "binomial")
-ads.sample.glm <- step(ads.sample.glm,  direction = "backward")
+```{r ads dummies}
+#ads.sample <- fastDummies::dummy_cols(ads.sample, select_columns = c("V15", "V16", "V17", "V18", "V19", "V20", "V21", "V22"))
+ads.sample <- ads[ads.big.sample.index, ]
 ```
+
+###4) Build a model (Classification Tree)
+I attempt a classification tree as a modeling method. I find a deeper tree by specifying a higher cp value in the parting method so that I can see which predictors are best.
 
 ```{r test}
 default.ct <- rpart(V1 ~ ., data = ads.sample, method = "class")
@@ -223,14 +226,34 @@ prp(default.ct, type = 1, extra = 1, under = TRUE, split.font = 1, varlen = -10)
 default.ct.pred <- predict(default.ct, ads.sample, type = "class")
 confusionMatrix(default.ct.pred, ads.sample$V1)
 
-default.ct <- rpart(V1 ~ ., data = ads.sample, method = "class")
 default.ct.pred <- predict(default.ct, ads, type = "class")
 confusionMatrix(default.ct.pred, ads$V1)
 
-ads.ct <- rpart(V1 ~ ., data = ads, method = "class")
-ads.ct.pred <- predict(ads.ct, ads, type = "class")
-confusionMatrix(ads.ct.pred, ads$V1)
-prp(ads.ct, type = 1, extra = 1, under = TRUE, split.font = 1, varlen = -10)
-
-ads.sample.rf <- randomForest(V1 ~ ., data = ads.sample, ntree = 100, mtry = 4, nodesize = 5, importance = TRUE)
+deeper.ct <- rpart(V1 ~ ., data = ads.sample, method = "class", cp = 0.001, minsplit = 1)
+prp(deeper.ct, type = 1, extra = 1, under = TRUE, split.font = 1, varlen = -10)
 ```
+
+In order to reduce the dimension and simplify the problem, I use a classification tree to identify the strongest predictors. A classification tree divides the dataset into "pure" (meaning all with the same target value) subsets by dividing the records based on a single predictor value. Each node represents a split in the dataset based on one of those predictors, the better the dataset can be divided into pure halves, the higher up the node is in the tree.
+
+Classification trees are unstable however, because they depend highly on the selected sample used to train. I will use the random forest method to reduce the instability in the model, which generates lots of trees based on different folds of the sample. Because the random forest method is computationally intensive, I first reduce the dimension by selecting only the best predictors from the previous tree, V7, V12, V10, V19, V6, V14, V3, and V9.
+
+```{r calculate the random forest}
+#random forest dimension reduction
+ads.sample.reduced <- ads.sample %>% select(V1, V7, V12, V10, V17, V19, V6, V14, V3, V9)
+
+ads.reduced.sample.rf <- randomForest(V1 ~ ., data = ads.sample.reduced, ntree = 500, mtry = 4, nodesize = 5, importance = TRUE)
+ads.reduced.sample.rf.pred <- predict(ads.reduced.sample.rf, ads.sample, type = "class")
+confusionMatrix(ads.reduced.sample.rf.pred, ads.sample$V1)
+```
+
+I get a really good fit to the sample set with random forest.
+
+```{r test the entire set}
+ads.rf.pred <- predict(ads.reduced.sample.rf, ads, type = "class")
+confusionMatrix(ads.rf.pred, ads$V1)
+```
+My random forest built on 10% of the data extrapolated on the entire set had an accuracy of 77.6%. By using a subset of the data in training and the random forest method with 500 trees, I can be more confident that I am not overfitting the noise in the training set and that my accuracy is not an extension of that overfitting.
+
+Unfortunately a random forest cannot be visualized in the same sense as a single tree so regarding my best predictors I know only that it is some combination of V7, V12, V10, V19, V6, V14, V3, and V9.
+
+In order to improve my model I could use a random forest over the entire dataset, which would be computationally complex. The random forest I have generated above took about 10 minutes to finish calculation. This could introduce some performance constraints in some modeling applications. In the end I found that this method was able to quickly identify good performing predictors and simple to make sense out of a dataset that I otherwise know little about.
