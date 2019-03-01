@@ -1,0 +1,76 @@
+---
+title: "Untitled"
+author: "Jim Reilly"
+date: "February 25, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r clear the global env}
+rm(list=ls())
+```
+
+
+```{r libraries, include = FALSE}
+library(caret)
+library(dplyr)
+library(randomForest)
+library(rpart)
+library(rpart.plot)
+library(BBmisc)
+```
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r spam}
+spam <- read.csv(file = "data/spam_data.csv", header = TRUE)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r summary of spam}
+spamCount <- spam %>% group_by(label) %>% summarise(count = length(label))
+spamCount
+
+spam.onlySpam <- spam %>% filter(label == 1) %>% select(-label)
+spam.notSpam <- spam %>% filter(label == 0) %>% select(-label)
+```
+
+```{r top 30 words in spam}
+wordCount.spam <- colSums(spam.onlySpam)
+head(sort(wordCount.spam, decreasing = TRUE), 30)
+```
+
+```{r top 30 words in non spam}
+wordCount.notSpam <- colSums(spam.notSpam)
+head(sort(wordCount.notSpam, decreasing = TRUE), 30)
+```
+
+
+
+```{r top words that appear in spam but not non-spam}
+wordCount.spam.normal <- normalize(wordCount.spam, method = "range", range = c(0, max(wordCount.notSpam)))
+max(wordCount.notSpam)
+head(sort(wordCount.spam.normal, decreasing = TRUE), 30)
+spam.diff <- pmax((wordCount.spam.normal - wordCount.notSpam), 0)
+mostOftenSpamWords <- names(head(sort(spam.diff, decreasing = TRUE), 200))
+head(sort(spam.diff, decreasing = TRUE), 200)
+```
+
+```{r model spam}
+spam.reduced <- spam[, c("label", mostOftenSpamWords)]
+spam.ct <- rpart(label ~ ., data = spam.reduced, method = "class")
+prp(spam.ct, type = 1, extra = 1, under = TRUE, split.font = 1, varlen = -10)
+spam.ct.pred <- predict(spam.ct, spam, type = "class")
+confusionMatrix(spam.ct.pred, factor(spam$label))
+```
+
