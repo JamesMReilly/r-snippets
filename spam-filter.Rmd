@@ -1,8 +1,10 @@
 ---
-title: "Untitled"
+title: "Spam Filtering"
 author: "Jim Reilly"
-date: "February 25, 2019"
-output: html_document
+date: "March 2, 2019"
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -23,19 +25,15 @@ library(rpart)
 library(rpart.plot)
 library(BBmisc)
 ```
-## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
 ```{r spam}
 spam <- read.csv(file = "data/spam_data.csv", header = TRUE)
 ```
 
-## Including Plots
+## Data Exploration
 
-You can also embed plots, for example:
+After reading the data I show the characteristics of the dataset.
 
 ```{r summary of spam}
 spamCount <- spam %>% group_by(label) %>% summarise(count = length(label))
@@ -45,32 +43,56 @@ spam.onlySpam <- spam %>% filter(label == 1) %>% select(-label)
 spam.notSpam <- spam %>% filter(label == 0) %>% select(-label)
 ```
 
+There are 50,199 spam emails, and 25220 not spam emails. For each email we have 2940 words and a boolean value for whether or not that word appears in our email. For curiosity I pull out some of the top words in each set below.
+
 ```{r top 30 words in spam}
 wordCount.spam <- colSums(spam.onlySpam)
-head(sort(wordCount.spam, decreasing = TRUE), 30)
+head(names(sort(wordCount.spam, decreasing = TRUE)), 30)
 ```
 
 ```{r top 30 words in non spam}
 wordCount.notSpam <- colSums(spam.notSpam)
-head(sort(wordCount.notSpam, decreasing = TRUE), 30)
+head(names(sort(wordCount.notSpam, decreasing = TRUE)), 30)
 ```
 
+I noticed that both sets had similar "most common" words. If I assume that these are words that are common in english and not predictive of spam I would want to normalize the number of appearances in each set to an equal range and take the difference of the amount of times a word appears. Through that I can identify the most common words that uniquely appear in spam.
 
 
 ```{r top words that appear in spam but not non-spam}
 wordCount.spam.normal <- normalize(wordCount.spam, method = "range", range = c(0, max(wordCount.notSpam)))
-max(wordCount.notSpam)
-head(sort(wordCount.spam.normal, decreasing = TRUE), 30)
 spam.diff <- pmax((wordCount.spam.normal - wordCount.notSpam), 0)
-mostOftenSpamWords <- names(head(sort(spam.diff, decreasing = TRUE), 200))
-head(sort(spam.diff, decreasing = TRUE), 200)
+mostOftenSpamWords <- names(head(sort(spam.diff, decreasing = TRUE), 100))
+mostOftenSpamWords
 ```
 
-```{r model spam}
-spam.reduced <- spam[, c("label", mostOftenSpamWords)]
-spam.ct <- rpart(label ~ ., data = spam.reduced, method = "class")
-prp(spam.ct, type = 1, extra = 1, under = TRUE, split.font = 1, varlen = -10)
-spam.ct.pred <- predict(spam.ct, spam, type = "class")
-confusionMatrix(spam.ct.pred, factor(spam$label))
+Sure enough, words like money, assured, offer, meds, prices, ect. appear in spam significantly more than they appear in non spam. A good model would likely take this into consideration but for now I will build a model using all terms.
+
+```{r split data into test and validation}
+set.seed(3456)
+
+spam.trainIndex <- createDataPartition(spam$label, p = 0.1, list = FALSE)
+
+spam.train <- spam[spam.trainIndex, ]
+spam.valid <- spam[-spam.trainIndex, ]
 ```
+
+```{r fit a binary glm with all parameters}
+spam.train.glm <- glm(label ~ ., data = spam.train, family = "binomial")
+```
+This model was time intensive to produce, next this is why I only used 10% of the dataset in training the model
+
+```{r test the model}
+spam.train.glm.pred <- predict(spam.train.glm, spam.train, type = "response")
+confusionMatrix(factor(as.numeric(spam.train.glm.pred > 0.5)), factor(spam.train$label))
+```
+
+Fit the training data with 98% accuracy.
+
+```{r test the validation set}
+spam.valid.glm.pred <- predict(spam.train.glm, spam.valid, type = "response")
+confusionMatrix(factor(as.numeric(spam.valid.glm.pred > 0.5)), factor(spam.valid$label))
+```
+Fit the validation set with 88.9% accuracy. There were 4560 false positives and 2975 false negatives. In terms of asymmetric costs, I would propose that the false positives (emails that are not spam that we missclassified) have a higher cost than false negatives. This is because those emails have desirable content that the user actually needs to see. A better model would have less false positives than false negatives (ideally 0 of each of course).
+
+This model was costly to produce, it was the single longest model fitting and used over 9GB of RAM the entire time. I originally attempted a training set with 80% of the original data and after an hour it still wasnt finished. Parametric models in this problem space will likely have poor performance solely based on how many predictors there are. I was able to train a classification tree in a fraction of the time because it removes (prunes) predictors as it goes that are poor classifiers.
 
