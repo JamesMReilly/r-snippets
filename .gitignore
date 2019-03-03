@@ -1,5 +1,7 @@
-/data
-/reports
+/data/*
+/reports/*
+/heart-disease-cache/*
+/heart-disease-figure/*
 *.pdf
 *.png
 *.html

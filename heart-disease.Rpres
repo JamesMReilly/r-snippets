@@ -1,28 +1,88 @@
-heart-disease
-========================================================
-author: 
-date: 
-autosize: true
 
-First Slide
-========================================================
-
-For more details on authoring R presentations please visit <https://support.rstudio.com/hc/en-us/articles/200486468>.
-
-- Bullet 1
-- Bullet 2
-- Bullet 3
-
-Slide With Code
-========================================================
-
-```{r}
-summary(cars)
+```{r cache output, include=FALSE}
+opts_chunk$set(cache=TRUE)
 ```
 
-Slide With Plot
+heart-disease-modeling
+========================================================
+author: Jim Reilly
+date: 3-3-2019
+autosize: true
+
+UCI Heart Disease Dataset
+========================================================
+[Heart Disease dataset on UCI](https://www.kaggle.com/ronitf/heart-disease-uci/home)
+
+[Original UCI Archive](https://archive.ics.uci.edu/ml/datasets/heart+Disease)
+
+Dataset of 13 attributes and 1 label of heart disease in patients, a subset of the greater "Cleveland" heart disease database being used by ML researchers. 
+
+The goal is to identify the presence of heart disease in patients based on the available predictors.
+
+Available Predictors
 ========================================================
 
-```{r, echo=FALSE}
-plot(cars)
+- age: int 
+- sex: 0 (female) 1 (male) 
+- cp: 0-4 encoding for type of chest pain
+- trestbps: int resting blood pressure
+- chol: int cholestoral in mg/dl
+- fbs: boolean fasting blood sugar >120 mg/dl
+- restecg: 0,1,2 encoding for resting ecg result
+- thalach: int for max heart rate from exercise
+
+***
+
+- exang: boolean excercise induced angina 
+- oldpeak: double ST depression during exercise
+- slope: 0,1,2 encoding for slope of ST segment
+- ca: 0-4 number of major vessels colored
+- thal: 3-level factor for defects
+- Label: 0 (no-disease) 1 (disease)
+
+"Show me the Data"
+========================================================
+
+```{r libraries, include = FALSE}
+library(ggplot2)
+library(dplyr)
+library(caret)
+```
+
+```{r load the data} 
+heart <- read.csv(file="data/heart.csv",fileEncoding="UTF-8-BOM")
+heart$target <- factor(heart$target)
+```
+
+```{r summary of the data}
+dim(heart)
+heart %>% group_by(target) %>% summarise(patients = length(target))
+```
+
+"Show me the Data"
+========================================================
+
+```{r head of the dataset}
+head(heart[1:7], n = 3)
+head(heart[8:14], n = 3)
+```
+
+Hypothesis
+========================================================
+
+## The presence of heart disease can be predicted with these 13 variables
+
+Variable Visualization
+========================================================
+
+```{r, echo = FALSE}
+ageChart <- ggplot(data = heart, aes(x = target, y = age)) 
+ageChart + geom_boxplot() + labs(title = 'Age of patients grouped by heart disease')
+```
+
+***
+
+```{r sex, echo = FALSE}
+sexPlot <- ggplot(data = heart, aes(x = factor(sex))) 
+sexPlot + geom_bar(aes(fill = target)) + xlab('Sex') +labs(title = 'Patients grouped by sex and presence of heart disease')
 ```
