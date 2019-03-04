@@ -3,7 +3,7 @@
 opts_chunk$set(cache=TRUE)
 ```
 
-heart-disease-modeling
+Modeling Heart Disease
 ========================================================
 author: Jim Reilly
 date: 3-3-2019
@@ -40,7 +40,7 @@ Available Predictors
 - thal: 3-level factor for defects
 - Label: 0 (no-disease) 1 (disease)
 
-"Show me the Data"
+Quantitative Summary
 ========================================================
 
 ```{r libraries, include = FALSE}
@@ -59,7 +59,7 @@ dim(heart)
 heart %>% group_by(target) %>% summarise(patients = length(target))
 ```
 
-"Show me the Data"
+A View at a Record
 ========================================================
 
 ```{r head of the dataset}
@@ -75,14 +75,106 @@ Hypothesis
 Variable Visualization
 ========================================================
 
-```{r, echo = FALSE}
-ageChart <- ggplot(data = heart, aes(x = target, y = age)) 
-ageChart + geom_boxplot() + labs(title = 'Age of patients grouped by heart disease')
+```{r chest pain, echo = FALSE}
+cpPlot <- ggplot(data = heart, aes(x = factor(cp)))
+cpPlot + geom_bar(aes(fill = target)) + xlab('Chest Pain Type') +labs(title = 'Patients grouped by chest pain type and presence of heart disease')
+```
+
+***
+
+```{r thalach, echo = FALSE}
+thalachPlot <- ggplot(data = heart, aes(x = target, y = thalach)) 
+thalachPlot + geom_boxplot() + labs(title = 'Maximum heart rate achieved through excercise grouped by heart disease') +ylab('Heart Rate (bpm)')
+```
+
+
+Variable Visualization
+========================================================
+
+```{r excercise angina, echo = FALSE}
+exangPlot <- ggplot(data = heart, aes(x = factor(exang)))
+exangPlot + geom_bar(aes(fill = target)) + xlab('Excercise induced angina') +labs(title = 'Patient experiences excercise induced angina grouped by heart disease')
+```
+
+***
+
+```{r old peak, echo = FALSE}
+oldpeakPlot <- ggplot(data = heart, aes(x = target, y = oldpeak)) 
+oldpeakPlot + geom_boxplot() + labs(title = 'ST depression from excercise grouped by heart disease')
+```
+
+Variable Visualization
+========================================================
+
+```{r ca, echo = FALSE}
+caPlot <- ggplot(data = heart, aes(x = factor(ca)))
+caPlot + geom_bar(aes(fill = target)) + labs(title = 'Number of major vessels colored by flourosopy grouped by heart disease')
 ```
 
 ***
 
 ```{r sex, echo = FALSE}
-sexPlot <- ggplot(data = heart, aes(x = factor(sex))) 
+sexPlot <- ggplot(data = heart, aes(x = factor(sex)))
 sexPlot + geom_bar(aes(fill = target)) + xlab('Sex') +labs(title = 'Patients grouped by sex and presence of heart disease')
 ```
+
+Model Setup
+========================================================
+
+```{r train and validation split}
+set.seed(3456)
+
+trainIndex <- createDataPartition(heart$target, p = 0.8, list = FALSE)
+
+heart.train <- heart[trainIndex, ]
+heart.valid <- heart[-trainIndex, ]
+```
+
+Logistic Regression Model
+========================================================
+
+```{r step selection, echo = FALSE}
+heart.glm <- glm(target ~ 1, data = heart.train, family = "binomial")
+heart.glm <- step(heart.glm, scope = ~ sex + cp + fbs + restecg + thalach + exang + oldpeak + slope + ca + thal, direction = "forward", steps = 5)
+```
+
+
+Model Summary
+========================================================
+
+```{r}
+summary(heart.glm)
+```
+
+Performance (Test fit)
+========================================================
+
+```{r performance test}
+heart.predictions <- predict(heart.glm, heart.train, type = "response")
+confusionMatrix(factor(as.numeric(heart.predictions > 0.5)), heart.train$target)
+```
+
+
+Performance (Validation fit)
+========================================================
+
+```{r performance valid}
+heart.predictions <- predict(heart.glm, heart.valid, type = "response")
+confusionMatrix(factor(as.numeric(heart.predictions > 0.5)), heart.valid$target)
+```
+
+Conclusion
+========================================================
+
+Outcomes
+  - We can effectively model heart disease with 80% accuracy
+  - only 5 features were required out of a provided 13
+  - Only simple methods required in modeling
+
+Suggested improvements
+ - Try a non-linear model
+ - Lower threshold if cost of false positive is +++
+ - Boost on missclassification
+ 
+
+
