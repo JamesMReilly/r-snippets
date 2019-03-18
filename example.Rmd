@@ -1,0 +1,97 @@
+---
+title: "Example Notebook"
+author: "Jim Reilly"
+date: "March 18, 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Markdown features
+
+Markdown is a "Markup" language that lets us write out our formatted documents in plaintext. We can use **bold** and _italics_
+
+We can make headers to format our work
+
+___
+
+#Main header
+
+##Sub Header
+
+###Smaller header
+
+___
+
+Add a break in the page to separate content
+
+create formatted code blocks in a variety of languages
+
+###R
+```r
+df <- read.csv(file = "myFile.csv");
+summary(df)
+```
+
+###Java
+```java
+public int addTheseInts(int a, int b) {
+  return a + b;
+}
+```
+
+###JavaScript
+```javascript
+const addThese = (a, b) => a + b
+```
+
+
+## Including Plots
+
+We can write code that evaluates, here we can embed a plot for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+Here is the sampel line without the echo=FALSE as an example
+
+```{r sample with echo}
+plot(pressure)
+```
+
+## Importing libraries
+
+We can import the libraries that we have been using frequently in our assignments just as well (I add message=FALSE so that all the output on the library import is suppressed)
+
+```{r import the libraries, message=FALSE}
+library(ggplot2)
+library(dplyr)
+```
+
+```{r using the libraries}
+data(diamonds)
+summary(diamonds)
+df <- diamonds %>% select("price", "clarity", "cut")
+
+df.cutPrice <- ggplot(data = df, aes(x = cut, y = price)) + geom_boxplot()
+df.clarityPlot <- ggplot(data = df, aes(x = clarity, y = price)) + geom_boxplot()
+df.cutPrice
+df.clarityPlot
+```
+
+
