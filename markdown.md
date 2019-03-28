@@ -22,6 +22,8 @@ Markdown is a _lightweight markup language_ designed to be **unintrusive** and *
 Markdown is a _lightweight markup language_ designed to be **unintrusive** and **easy to interpret**
 ```
 
+Has a wide adoption throughout the computing industry from `README.md`s found in software development projects to being the backbone of wiki's
+
 Slide With Plot
 ========================================================
 

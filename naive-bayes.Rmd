@@ -1,0 +1,105 @@
+---
+title: "R Notebook"
+author: "Jim Reilly"
+output: html_notebook
+---
+
+```{r clear the global env, include = FALSE}
+rm(list=ls())
+```
+
+```{r load required libraries, include = FALSE, message = FALSE, echo = FALSE} 
+library(dplyr)
+library(caret)
+```
+
+Using the file UniversalBank.csv which contains data on 5000 bank customers of Universal Bank, I conduct a series of stastical analysis using Bayes Theorem.
+
+```{r load the data}
+bank = read.csv(file = "data/UniversalBank.csv")
+```
+
+## Part A
+
+We will be looking at whether a customer accepted a personal loan as a part of a recent campaign and whether they also have a credit card or an online account with the bank. All of these variables are 0,1 encoded integers.
+
+```{r select the required rows and the total count}
+bank = bank %>% select(PersonalLoan, CreditCard, Online)
+totalCustomers = nrow(bank)
+```
+
+We will also split the data into train and validation sets to see how well our observations can explain new data
+
+```{r split into train and test}
+trainIndex = createDataPartition(bank$PersonalLoan, p = 0.6, list = FALSE)
+
+bank.train = bank[trainIndex, ]
+bank.valid = bank[-trainIndex, ]
+
+totalCustomers.train = nrow(bank.train)
+totalCustomers.valid = nrow(bank.valid)
+```
+
+For analysis we also need to know how many total customers there are, from here we can calculate a load of probabilities
+
+## Part B
+
+The probability that a customer customer will accept a loan offer given they already have an online account and credit card can be calculated by filtering out that sub-population and comparing it to the whole:
+
+```{r P(Loan | Online & Credit)}
+loan.onlineAndCredit = bank.train %>% filter(PersonalLoan == 1 & CreditCard == 1 & Online == 1)
+
+loan.onlineAndCredit.n = nrow(loan.onlineAndCredit) / totalCustomers.train
+```
+
+The probability that a customer with an Online and Credit account accepts a loan is `r loan.onlineAndCredit.n`
+
+
+## Part C
+
+Lets consider the problem in smaller parts, looking at either only `Online` or `CreditTime` at a time
+
+```{r P(CC | Loan)}
+loan.credit = bank.train %>% filter(PersonalLoan == 1 & CreditCard == 1)
+
+loan.credit.n = nrow(loan.credit) / totalCustomers.train
+```
+
+The proportion of customers that have a loan AND a credit card with Universal Bank `r loan.credit.n`
+
+```{r P(Online | Loan)}
+loan.online = bank.train %>% filter(PersonalLoan == 1 & Online == 1)
+
+loan.online.n = nrow(loan.online) / totalCustomers.train
+```
+
+The proportion of customers that have a loan AND an online account with Universal bank is `r loan.online.n`
+
+```{r P(Loan)}
+loan = bank.train %>% filter(PersonalLoan == 1)
+
+loan.n = nrow(loan) / totalCustomers.train
+```
+
+The proportion of loan acceptors is `r loan.n`
+
+```{r P(CC | !Loan)}
+no.loan.credit = bank.train %>% filter(CreditCard == 1 & PersonalLoan == 0)
+
+no.loan.credit.n = nrow(no.loan.credit) / totalCustomers.train
+```
+
+The proportion of customers that dont have a loan AND have a credit card with Universal Bank is `r no.loan.credit.n`
+
+```{r P(Online | !Loan)}
+no.loan.online = bank.train %>% filter(Online == 1 & PersonalLoan == 0)
+
+no.loan.online.n = nrow(no.loan.online) / totalCustomers.train
+```
+
+The proportion of customers that dont have a loan AND have an online account with Universal Bank is `r no.loan.online.n`
+
+// P(Loan | CC, Online) = P(Loan | CC)  P(Loan | Online)  P(Loan) / P(Credit, Online) [denom = P(CC | !Loan) P (Online | !Loan) P(!Loan) + Numerator, meaning its the number of times we had the above inputs but got ANY outcome]
+
+```{r P()}
+
