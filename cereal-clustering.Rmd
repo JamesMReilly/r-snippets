@@ -1,0 +1,67 @@
+---
+title: "Cereal Clustering"
+author: "Jim Reilly"
+date: "April 1, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, include = FALSE, message = FALSE}
+library(caret)
+```
+
+## Data
+
+I load the cereals while also removing rows that have missing values
+
+```{r load the data}
+cereal <- na.omit(read.csv("data/Cereals.csv"))
+head(cereal)
+```
+
+## Normalize the data
+
+Normalize the data with caret `preProcess` function
+```{r normalize}
+#find what columns are numeric
+numerics <- grep(paste(c("numeric", "integer"), collapse="|"), lapply(cereal,class))
+
+#define the normalization function
+normalize <- function(x) { (x - min(x)) / (max(x) - min(x)) }
+
+#apply the function to the numeric columns
+cereal.normal<- apply(cereal[,numerics], MARGIN = 2, FUN = normalize) 
+row.names(cereal.normal) <- cereal$name
+```
+
+## Compute distances
+```{r distances}
+cereal.dist.euc <- dist(cereal.normal, method = "euclidean")
+```
+
+## Clustering
+
+Single hierarchical and Complete hierarchical clustering
+
+```{r clustering}
+cereal.complete <- hclust(cereal.dist.euc, method = "complete")
+plot(cereal.complete, hang = -1, ann = FALSE)
+
+cereal.single <- hclust(cereal.dist.euc, method = "single")
+plot(cereal.single, hang =  -1, ann = FALSE)
+```
+
+## Centroid analysis
+
+```{r centroid means}
+#find the medoid in a cluster 'i' (from https://www.biostars.org/p/13143/)
+centroid.means = function(i, data, clusters) {
+  j = (clusters == i)
+  colMeans(data[j,])
+}
+
+
+```

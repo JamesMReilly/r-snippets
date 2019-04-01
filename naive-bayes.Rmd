@@ -1,7 +1,10 @@
 ---
-title: "R Notebook"
+title: "Naive Bayes"
 author: "Jim Reilly"
-output: html_notebook
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
 ---
 
 ```{r clear the global env, include = FALSE}
@@ -11,6 +14,7 @@ rm(list=ls())
 ```{r load required libraries, include = FALSE, message = FALSE, echo = FALSE} 
 library(dplyr)
 library(caret)
+library(e1071)
 ```
 
 Using the file UniversalBank.csv which contains data on 5000 bank customers of Universal Bank, I conduct a series of stastical analysis using Bayes Theorem.
@@ -31,6 +35,8 @@ totalCustomers = nrow(bank)
 We will also split the data into train and validation sets to see how well our observations can explain new data
 
 ```{r split into train and test}
+set.seed(3456)
+
 trainIndex = createDataPartition(bank$PersonalLoan, p = 0.6, list = FALSE)
 
 bank.train = bank[trainIndex, ]
@@ -46,34 +52,45 @@ For analysis we also need to know how many total customers there are, from here 
 
 The probability that a customer customer will accept a loan offer given they already have an online account and credit card can be calculated by filtering out that sub-population and comparing it to the whole:
 
-```{r P(Loan | Online & Credit)}
-loan.onlineAndCredit = bank.train %>% filter(PersonalLoan == 1 & CreditCard == 1 & Online == 1)
+```{r n loans}
+train.loans <- bank.train %>% filter(PersonalLoan == 1)
 
-loan.onlineAndCredit.n = nrow(loan.onlineAndCredit) / totalCustomers.train
+train.loans.n <- nrow(train.loans)
+train.noLoans.n <- nrow(bank.train) - train.loans.n
+```
+
+There were `r train.loans.n` loans given in the train set
+
+```{r P(Loan | Online & Credit)}
+onlineAndCredit = bank.train %>% filter(CreditCard == 1 & Online == 1)
+
+loan.onlineAndCredit <- sum(onlineAndCredit$PersonalLoan == 1)
+
+loan.onlineAndCredit.n = loan.onlineAndCredit / nrow(onlineAndCredit) 
 ```
 
 The probability that a customer with an Online and Credit account accepts a loan is `r loan.onlineAndCredit.n`
 
-
-## Part C
+Lets see if we can calculate this same value using bayes theorem
+## Part D
 
 Lets consider the problem in smaller parts, looking at either only `Online` or `CreditTime` at a time
 
 ```{r P(CC | Loan)}
 loan.credit = bank.train %>% filter(PersonalLoan == 1 & CreditCard == 1)
 
-loan.credit.n = nrow(loan.credit) / totalCustomers.train
+loan.credit.n = nrow(loan.credit) / train.loans.n
 ```
 
-The proportion of customers that have a loan AND a credit card with Universal Bank `r loan.credit.n`
+The proportion of customers with a loan that have a credit card is `r loan.credit.n`
 
 ```{r P(Online | Loan)}
 loan.online = bank.train %>% filter(PersonalLoan == 1 & Online == 1)
 
-loan.online.n = nrow(loan.online) / totalCustomers.train
+loan.online.n = nrow(loan.online) / train.loans.n
 ```
 
-The proportion of customers that have a loan AND an online account with Universal bank is `r loan.online.n`
+The proportion of customers that have a loan that also have an online account with Universal bank is `r loan.online.n`
 
 ```{r P(Loan)}
 loan = bank.train %>% filter(PersonalLoan == 1)
@@ -81,25 +98,82 @@ loan = bank.train %>% filter(PersonalLoan == 1)
 loan.n = nrow(loan) / totalCustomers.train
 ```
 
-The proportion of loan acceptors is `r loan.n`
+The proportion of loan acceptors among all customers is `r loan.n`
 
 ```{r P(CC | !Loan)}
 no.loan.credit = bank.train %>% filter(CreditCard == 1 & PersonalLoan == 0)
 
-no.loan.credit.n = nrow(no.loan.credit) / totalCustomers.train
+no.loan.credit.n = nrow(no.loan.credit) / train.noLoans.n
 ```
 
-The proportion of customers that dont have a loan AND have a credit card with Universal Bank is `r no.loan.credit.n`
+The proportion of customers that dont have a loan that have a credit card with Universal Bank is `r no.loan.credit.n`
 
 ```{r P(Online | !Loan)}
 no.loan.online = bank.train %>% filter(Online == 1 & PersonalLoan == 0)
 
-no.loan.online.n = nrow(no.loan.online) / totalCustomers.train
+no.loan.online.n = nrow(no.loan.online) / train.noLoans.n
 ```
 
-The proportion of customers that dont have a loan AND have an online account with Universal Bank is `r no.loan.online.n`
+The proportion of customers that dont have a loan that have an online account with Universal Bank is `r no.loan.online.n`
 
-// P(Loan | CC, Online) = P(Loan | CC)  P(Loan | Online)  P(Loan) / P(Credit, Online) [denom = P(CC | !Loan) P (Online | !Loan) P(!Loan) + Numerator, meaning its the number of times we had the above inputs but got ANY outcome]
+```{r P(!Loan)}
+no.loan = bank.train %>% filter(PersonalLoan == 0)
 
-```{r P()}
+no.loan.n = nrow(no.loan) / totalCustomers.train
+```
 
+The proportion of customers that did not accept a loan is `r no.loan.n`
+
+## Part E
+
+Using these quantities, we can apply bayes rule to estimate P(Loan = 1 | CC = 1, Online = 1)
+
+Bayes thereom (in my own words) states that the probability of a loan given a client has a credit card and online account is equal to the probability that the client has a loan and credit card times the proportion for loan and online times the rate of loans at all no matter the input. Then divide this quanity by any time that same input (Credit = 1, Online = 1) produced ANY outcome (so the times this produced no loan plus the times that this produced a loan)
+
+I have all of these values calculated already so I can just calculate with R
+
+```{r evaluate bayes rule for P(Loan | CC, Online)}
+
+loan.rate <- loan.n * loan.online.n * loan.credit.n
+
+noLoan.rate <- no.loan.n * no.loan.online.n * no.loan.credit.n
+
+loan.onlineAndCredit.bayes <- loan.rate / (loan.rate + noLoan.rate)
+```
+
+We calculated a probability that a customer will accept a loan with the bank given that they have an online account and a credit card with the bank to be `r loan.onlineAndCredit.bayes`, which is compared to the actual rate of the training set we calculated in part b of `r loan.onlineAndCredit.n`
+
+## Part F
+
+Comparing these values to the validation set, we find a rate of a loan accepters having a credit card and online accounts below
+
+```{r compare to the validation set}
+onlineAndCredit.valid = bank.valid %>% filter(CreditCard == 1 & Online == 1)
+
+loan.onlineAndCredit.valid <- sum(onlineAndCredit$PersonalLoan == 1)
+
+loan.onlineAndCredit.valid.n = loan.onlineAndCredit.valid / nrow(onlineAndCredit.valid) 
+```
+
+We found a rate of `r loan.onlineAndCredit.valid.n`, which in this partition is greater than or estimates but the bayes estimate was closer. 
+
+This is a better estimate than a straight calculation of the ratio because our bayes estimate takes into account the rates that each individual evidence occurs and not just the exact scenario relative to the population. By treating each evidence as independent in this case we get a better understanding of the importance of each evidence and not just the combination of the two.
+
+## Part G
+
+To predict the comparable P(Loan = 1 | CC = 1 , Online = 1) we used all six components from part D. Calculating the value was very easy, but an even easier way is to use R to calculate it.
+
+Computing bayes with an R package can produce the same results without the several steps of calculation:
+
+```{r compute bayes}
+loan.nb <- naiveBayes(as.factor(PersonalLoan) ~ CreditCard + Online, data = bank.train)
+loan.nb
+```
+This table shows the A-priori probabilities of our event occuring which relates to the calculation we did and part E and the table of conditional probabilities correspond to the work done in part D. We used the left column of the two tables, which is for the values of CreditCard == 1 and Online == 1.
+
+```{r prediction}
+bank.valid.pred <- predict(loan.nb, newdata = bank.valid)
+confusionMatrix(bank.valid.pred, factor(bank.valid$PersonalLoan))
+```
+
+Although we are "right" 90% of the time, this is obviously a bad model because it never picks loan. This is likely influenced by the fact that a loan acceptance is an already rare event and a weakness of Naive bayes is predicting rare events because the rate at which they occur is a near zero value which drives numerator to zero as the event gets rarer (meaning its never going to be a large enough number to be voted for as a class outcome)
