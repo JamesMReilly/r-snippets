@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r libraries, include = FALSE, message = FALSE}
 library(caret)
+library(dplyr)
 ```
 
 ## Data
@@ -53,15 +54,27 @@ plot(cereal.complete, hang = -1, ann = FALSE)
 cereal.single <- hclust(cereal.dist.euc, method = "single")
 plot(cereal.single, hang =  -1, ann = FALSE)
 ```
+## Make clusters
+The complete hierarchical cluster looks much more evenly distributed.
+
+Based on the complete hierarchical clustering, I think 7 clusters is a good amount based on the dendrogram
+
+```{r cutree}
+cereal.clusters = cutree(cereal.complete, k = 7)
+
+cereal.clusters.df <- data.frame(name = names(cereal.clusters), cluster = cereal.clusters) %>% arrange(cluster)
+cereal.clusters.df
+```
 
 ## Centroid analysis
 
 ```{r centroid means}
 #find the medoid in a cluster 'i' (from https://www.biostars.org/p/13143/)
 centroid.means = function(i, data, clusters) {
-  j = (clusters == i)
-  colMeans(data[j,])
+  numerics <- grep(paste(c("numeric", "integer"), collapse="|"), lapply(cereal,class))
+  j <- (clusters == i)
+  colMeans(data[j,numerics])
 }
 
-
+sapply(unique(cereal.clusters), centroid.means, cereal, cereal.clusters)
 ```
