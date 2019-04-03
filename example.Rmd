@@ -37,7 +37,7 @@ ___
 
 Add a break in the page to separate content
 
-create formatted code blocks in a variety of languages
+create formatted code blocks in a variety of languages (These code blocks don't evaluate because they don't include the knitr {} information)
 
 ###R
 ```r
@@ -56,7 +56,7 @@ public int addTheseInts(int a, int b) {
 ```javascript
 const addThese = (a, b) => a + b
 ```
-
+The language listed after the first set of ` marks tells how they should be syntax highlighted
 
 ## Including Plots
 
@@ -74,7 +74,7 @@ Here is the sampel line without the echo=FALSE as an example
 plot(pressure)
 ```
 
-## Importing libraries
+## Importing libraries and doing "real" R
 
 We can import the libraries that we have been using frequently in our assignments just as well (I add message=FALSE so that all the output on the library import is suppressed)
 
@@ -82,6 +82,9 @@ We can import the libraries that we have been using frequently in our assignment
 library(ggplot2)
 library(dplyr)
 ```
+
+
+And here is a typical block of exploratory analysis that might appear in a homework assignment
 
 ```{r using the libraries}
 data(diamonds)
@@ -94,4 +97,6 @@ df.cutPrice
 df.clarityPlot
 ```
 
+## Conclusion
 
+By doing the work inside of the notebook we gain the benefit of not having to produce a final document because we already did all of that work along the way
