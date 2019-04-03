@@ -55,9 +55,9 @@ b. When deciding if a model is worth using or not, a decile chart visualizes a m
 
 c. OK other analyist... Assuming the same results from above (1040 data points, 30 fraudulent, an error rate of 8.653846%) we would classify 1040 points as non fraudulent, have 30 incorrect classifications, and an error rate of 30 / 1040 \* 100 = `r 30 / 1040 * 100`%
 
-This is definitely a better error rate, but this model is essentially useless to us because the cost of fraud != the cost of nonfraud. Fraud is incredibly expensive and we would prefer a model that had a higher error rate if it meant it could better classify fraud. If we compared sensitivities of the two models we would have 30 / (30 + 32) = `r 30 / (30 + 32)` vs. 0
+This is definitely a better error rate, but this model is essentially useless to us because the cost of fraud != the cost of nonfraud. Fraud is incredibly expensive and we would prefer a model that had a higher error rate if it meant it could better classify fraud. If we compared sensitivities of the two models we would have 30 / (30 + 32) = `r 30 / (30 + 32)` vs. 0. So although our colleague is technically correct we should be cautious about the conclusion
 
-d.
+d. For this situation we should really value the lift in our existing model over the improvement in error rate. We would actually have a negative lift in the second model (classifying all records as nonfraudulent) despite the improvement in error rate. The lift shows us that our first model is better than a random assignment of fraud and this can be used to justify the use of our model. It is important to consider multiple metrics of assessment of a model because even though one metric is better, does not mean we have found a better model. Our error in the first model is actually still very low and that should not be disregarded.
 
 ### 5.5
 
