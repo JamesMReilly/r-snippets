@@ -3,7 +3,6 @@
 /heart-disease-cache/*
 /heart-disease-figure/*
 *.pdf
-*.png
 *.html
 .Rhistory
 .RData

@@ -1,0 +1,36 @@
+---
+title: "Predictive Models"
+author: "Jim Reilly"
+date: "April 2, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### 5.1
+
+![](figures/question1.png)
+
+
+### 5.2
+
+![](figures/question2.png)
+
+### 5.3
+
+![](figures/question3.png)
+
+### 5.4
+
+![](figures/question4.png)
+
+### 5.5
+
+![](figures/question5.png)
+
+
+### 5.7
+
+![](figures/question7.png)
