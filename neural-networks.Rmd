@@ -1,0 +1,30 @@
+---
+title: "Neural Networks"
+author: "Jim Reilly"
+date: "April 8, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+```
+
+```{r load libraries}
+library(neuralnet)
+library(fastDummies)
+
+```
+
+### 11.3 Toyota Corolla
+
+```{r load the data}
+toyota <- read.csv("data/ToyotaCorolla.csv")
+
+toyota <- fastDummies::dummy_cols(toyota, select_columns = "Fuel_Type")
+
+toyota.range <-
+
+toyota.nn <- neuralnet(formula = Price ~ Age_08_04 + KM + Fuel_Type_Diesel + Fuel_Type_Petrol + Fuel_Type_CNG + HP + Automatic + Doors + Quarterly_Tax + Mfr_Guarantee + Guarantee_Period + Airco + Automatic_airco + CD_Player + Powered_Windows + Sport_Model + Tow_Bar, data = toyota, hidden = 2, linear.output = T)
+```
+
