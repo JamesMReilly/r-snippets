@@ -2,7 +2,9 @@
 title: "Predictive Models"
 author: "Jim Reilly"
 date: "April 2, 2019"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -45,6 +47,33 @@ b. An increase in the cutoff would lower error rate for nonfraudulent transactio
 
 ![](figures/question3.png)
 
+Considering the last 10 bodies of congress (excluding the current 116th) we have the following metrics on bills in congress:
+
+```{r bills}
+congress <- c(105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115)
+bills <- c(9141, 10840, 10789, 10669, 13072, 14042, 13675, 12299, 10637, 12063, 13556)
+gotAVote <- c(557, 650, 602, 694, 597, 861, 601, 390, 474, 661, 867)
+enactedLaws <- c(404,604, 383, 504, 483, 460, 385, 284, 296, 329, 443)
+
+congress.df <- data.frame(Congress = congress, Bills = bills, GotAVote = gotAVote, EnactedLaws = enactedLaws)
+
+congress.df$GotAVotePercent <- gotAVote / bills * 100
+congress.df$EnactedLawsPercent <- enactedLaws / bills * 100
+congress.df$EnactedLawsFromVote <- enactedLaws / gotAVote * 100
+
+congress.df
+```
+
+This data was sourced from https://www.govtrack.us/congress/bills/statistics
+
+A very low percentage of total legislation recieves a vote at all, let alone becomes law. Because of this, over sampling of properties on the enacted laws is likely requiered to build a good model. A naive model that classifies all bills as not becoming a law would at times perform better than 94% but of course no reasonable customer would pay for such a model.
+
+Some metrics that might be considered that may have a positive correlation with the success of a bill would be the party of the congressman introducing the bill, the majority party of house/senate, the number of authors on a bill, historical comparison to similar bills, bills that amend existing law vs. introduce new law, size of the bill in text, terms in office of the author, number of bills passed by the author, previous voting records of sitting members, ect.
+
+Because of the small sample size of enacted laws and the matter of party politics in the US, I can see these estimates being highly influenced based on party lines because the speaker of the house or the majority leader of the senate is likely to bring bills from their party to a vote and those bills are likely to be supported by members of that same party. These factors can also influence a model when the party of one body of congress does not match the other (or the presidents as well). This model would likely be unable to accurately determine when a party member goes "across the line" to influence the outcome of the vote because sometimes members of the minority will join the majority even though it wont change the outcome as a gesture to their constituents. There is likely enough data publicized by each congressmans' own website detailing their position on specific issues for analysts to assign ratings and propensities to vote for/against specific high level categories, such as womens health.
+
+The overall accuracy at 94% is slightly worse than the naive model in some years, however as seen in other exercises in this assignment that naive model is not incredibly valuable in all circumstances, this one included.
+
 ### 5.4
 
 ![](figures/question4.png)
@@ -63,7 +92,88 @@ d. For this situation we should really value the lift in our existing model over
 
 ![](figures/question5.png)
 
+The confusion matrix would look as follows:
+
+TP = 310
+FP = 130
+TN = 270
+FN = 90
+```
+    1     0
+       |
+1  310 | 130
+-------|-----
+0  90  | 270
+       |
+```
+
+We have an error rate of (90 + 130) / 800 = `r (90 + 130) / 800 * 100` and the model classified 440 data points as fraud which represents `r 440/800 * 100`% of this sample. With the given overfitting sample this model was built on dataset that was 50% fraud, so to estimate the performance on the original ratio we need to undo the oversampling dividing the number of fraud and nonfraud by their actual rates of occurence. Since frauds are 1% of the whole data and 50% of the sample we will divide the fraud column by 50/1 to decrease its rate of occurence. Given that nonfrauds are 99% of the whole data and 50% of the sample we will divide the nonfraud column by 50/99 to increase its relative occurence
+
+
+```
+    1               0                    1           0
+               |                               |
+1  310/(50)    | 130/(50/99)       1   6.2     |   257.4
+---------------|-----------    =>  ------------|-------------
+0  90 /(50)    | 270/(50/99)       0   1.8     |   534.6
+               |                               |
+```
+
+We see here that the actual number of frauds in this sample is 8 (back to 1% of the population) and the number of nonfrauds is 792 (99%). This brings our ratios back to the ratio of the real population. We can recalculate error rates just as before:
+
+(257.4 + 1.8) / 800 \* 100 = `r (257.4 + 1.8) / 800 * 100`%
+
+Our error rate increased when we return to the normal rate of occurence in the population, but we are left with a model that performs better than the naive model of classifying all values as nonfraud because we have some true positives.
 
 ### 5.7
 
 ![](figures/question7.png)
+
+First I put my values into a data frame:
+
+```{r put values into df}
+propensities <- c(0.03, 0.52, 0.38, 0.82, 0.33, 0.42, 0.55, 0.59, 0.09, 0.21, 
+                 0.43, 0.04, 0.08, 0.13, 0.01, 0.79, 0.42, 0.29, 0.08, 0.02)
+actual <- c(0, 0, 0, 1, 0, 0, 1, 0 ,0 ,0 ,0 ,0 ,0 ,0 ,0, 1, 0, 0 ,0 ,0)
+
+df <- data.frame(Propensity = propensities, Actual = as.factor(actual))
+```
+
+Then I apply cutoff rates as new columns of classifications to analyze error rate
+
+```{r cutoffs}
+df$cutoff.25 <- as.factor(as.integer(df$Propensity > 0.25))
+df$cutoff.5  <- as.factor(as.integer(df$Propensity > 0.5))
+df$cutoff.75 <- as.factor(as.integer(df$Propensity > 0.75))
+```
+
+And then I produce confusion matrix of all 3 cutoffs to show error rate, sensitivity, and specificity
+
+```{r, include = FALSE, message = FALSE}
+library(caret)
+```
+
+```{r confusion matrix}
+confusionMatrix(df$cutoff.25, df$Actual)
+confusionMatrix(df$cutoff.5 , df$Actual)
+confusionMatrix(df$cutoff.75, df$Actual)
+```
+
+We see the following summary of changes in metrics:
+
+Accuracy: 0.6 -> 0.9 -> 0.95
+Sensitivity: 0.5294 -> 0.8824 -> 1.0
+Specificity: 1.0 -> 1.0 -> 0.6667
+
+Lets also compare the results to a decile lift chart:
+
+
+```{r decile lift}
+library(gains)
+
+labels <- as.numeric(as.character(df$Actual))
+gain <- gains(labels, df$Propensity)
+barplot(gain$mean.resp/mean(labels), names.arg = gain$depth, xlab = "Percentile", ylab = "Mean Response", main = "Decile-wise lift chart")
+```
+
+My decile wise lift plot shows that the model is able to assign the highest propensity scores to the ones that are actually '1'. The shape of the graph is expected because there are only 3 postives in my sample. The descending staircase shape shows that the most likely positives are identified with the highest propensity scores because they appear in the 10th and 20th percentile.
