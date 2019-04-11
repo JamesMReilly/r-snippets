@@ -10,21 +10,149 @@ knitr::opts_chunk$set(echo = TRUE)
 rm(list=ls())
 ```
 
-```{r load libraries}
+```{r load libraries, message = FALSE}
 library(neuralnet)
 library(fastDummies)
-
+library(caret)
+library(dplyr)
 ```
 
 ### 11.3 Toyota Corolla
+
+In the below excercise I train a series of ANNs on a set of data relating to the sale of Toyota Corollas. I use the exact same parameters in each model and modify only the number of hidden layers and the dimensions of those layers.
+
+First I load the dataset and normalize all columns before splitting the data into test and validation sets.
+
+Next I train 4 ANNs, All discussion is beneath the last ANN validations.
+
+The notation below indicates how many nodes there are from the input layer (17) to the output layer (1)
+1) 17-2-1
+2) 17-5-1
+3) 17-5-5-1
+4) 17-13-13-13-13-13-5-1
 
 ```{r load the data}
 toyota <- read.csv("data/ToyotaCorolla.csv")
 
 toyota <- fastDummies::dummy_cols(toyota, select_columns = "Fuel_Type")
+toyota <- toyota %>% select(Price,Age_08_04,KM,Fuel_Type_Diesel,Fuel_Type_Petrol,Fuel_Type_CNG,HP,Automatic,Doors,Quarterly_Tax,Mfr_Guarantee,Guarantee_Period,Airco,Automatic_airco,CD_Player,Powered_Windows,Sport_Model,Tow_Bar)
 
-toyota.range <-
+maxs <- apply(toyota, 2, max) 
+mins <- apply(toyota, 2, min)
+toyota.range <- as.data.frame(scale(toyota, center = mins, scale = maxs - mins))
 
-toyota.nn <- neuralnet(formula = Price ~ Age_08_04 + KM + Fuel_Type_Diesel + Fuel_Type_Petrol + Fuel_Type_CNG + HP + Automatic + Doors + Quarterly_Tax + Mfr_Guarantee + Guarantee_Period + Airco + Automatic_airco + CD_Player + Powered_Windows + Sport_Model + Tow_Bar, data = toyota, hidden = 2, linear.output = T)
+trainIndex <- createDataPartition(toyota$Price, p = 0.8, list = FALSE)
+toyota.range.train <- toyota.range[trainIndex, ]
+toyota.range.valid <- toyota.range[-trainIndex, ]
 ```
+
+```{r train the ANN with 1 hidden layer 2 nodes}
+trainstart <- Sys.time();
+toyota.nn <- neuralnet(formula = Price ~ Age_08_04 + KM + Fuel_Type_Diesel + Fuel_Type_Petrol + Fuel_Type_CNG + HP + Automatic + Doors + Quarterly_Tax + Mfr_Guarantee + Guarantee_Period + Airco + Automatic_airco + CD_Player + Powered_Windows + Sport_Model + Tow_Bar, data = toyota.range.train, hidden = 2, linear.output = T)
+Sys.time() - trainstart
+```
+
+```{r evaluate the ANN}
+#drop the Price column because its the predicted value
+toyota.training.pred <- neuralnet::compute(toyota.nn, toyota.range.train[,2:18])
+
+toyota.training.predictions <- toyota.training.pred$net.result*(max(toyota$Price)-min(toyota$Price))+min(toyota$Price)
+toyota.training.actuals <- toyota[trainIndex,1]
+
+#training set RMSE
+RMSE(toyota.training.predictions, toyota.training.actuals)
+
+toyota.validation.pred <- neuralnet::compute(toyota.nn, toyota.range.valid[,2:18])
+
+toyota.validation.predictions <- toyota.validation.pred$net.result*(max(toyota$Price)-min(toyota$Price))+min(toyota$Price)
+toyota.validation.actuals <- toyota[-trainIndex,1]
+
+#validation set RMSE
+RMSE(toyota.validation.predictions, toyota.validation.actuals)
+
+```
+
+```{r train the ANN with 1 hidden layer 5 nodes}
+trainstart <- Sys.time();
+toyota.nn <- neuralnet(formula = Price ~ Age_08_04 + KM + Fuel_Type_Diesel + Fuel_Type_Petrol + Fuel_Type_CNG + HP + Automatic + Doors + Quarterly_Tax + Mfr_Guarantee + Guarantee_Period + Airco + Automatic_airco + CD_Player + Powered_Windows + Sport_Model + Tow_Bar, data = toyota.range.train, hidden = 5, linear.output = T)
+Sys.time() - trainstart
+```
+
+```{r evaluate the 2nd ANN}
+#drop the Price column because its the predicted value
+toyota.training.pred <- neuralnet::compute(toyota.nn, toyota.range.train[,2:18])
+
+toyota.training.predictions <- toyota.training.pred$net.result*(max(toyota$Price)-min(toyota$Price))+min(toyota$Price)
+toyota.training.actuals <- toyota[trainIndex,1]
+
+#training set RMSE
+RMSE(toyota.training.predictions, toyota.training.actuals)
+
+toyota.validation.pred <- neuralnet::compute(toyota.nn, toyota.range.valid[,2:18])
+
+toyota.validation.predictions <- toyota.validation.pred$net.result*(max(toyota$Price)-min(toyota$Price))+min(toyota$Price)
+toyota.validation.actuals <- toyota[-trainIndex,1]
+
+#validation set RMSE
+RMSE(toyota.validation.predictions, toyota.validation.actuals)
+```
+
+
+```{r train the ANN with 2 hidden layer 5 nodes each}
+trainstart <- Sys.time();
+toyota.nn <- neuralnet(formula = Price ~ Age_08_04 + KM + Fuel_Type_Diesel + Fuel_Type_Petrol + Fuel_Type_CNG + HP + Automatic + Doors + Quarterly_Tax + Mfr_Guarantee + Guarantee_Period + Airco + Automatic_airco + CD_Player + Powered_Windows + Sport_Model + Tow_Bar, data = toyota.range.train, hidden = c(5,5), linear.output = T)
+Sys.time() - trainstart
+```
+
+```{r evaluate the 3rd ANN}
+#drop the Price column because its the predicted value
+toyota.training.pred <- neuralnet::compute(toyota.nn, toyota.range.train[,2:18])
+
+toyota.training.predictions <- toyota.training.pred$net.result*(max(toyota$Price)-min(toyota$Price))+min(toyota$Price)
+toyota.training.actuals <- toyota[trainIndex,1]
+
+#training set RMSE
+RMSE(toyota.training.predictions, toyota.training.actuals)
+
+toyota.validation.pred <- neuralnet::compute(toyota.nn, toyota.range.valid[,2:18])
+
+toyota.validation.predictions <- toyota.validation.pred$net.result*(max(toyota$Price)-min(toyota$Price))+min(toyota$Price)
+toyota.validation.actuals <- toyota[-trainIndex,1]
+
+#validation set RMSE
+RMSE(toyota.validation.predictions, toyota.validation.actuals)
+```
+
+```{r train the ANN with 6 hidden layer 13 nodes each and 5 in the second to last}
+trainstart <- Sys.time();
+toyota.nn <- neuralnet(formula = Price ~ Age_08_04 + KM + Fuel_Type_Diesel + Fuel_Type_Petrol + Fuel_Type_CNG + HP + Automatic + Doors + Quarterly_Tax + Mfr_Guarantee + Guarantee_Period + Airco + Automatic_airco + CD_Player + Powered_Windows + Sport_Model + Tow_Bar, data = toyota.range.train, hidden = c(13,13,13,13,13,5), linear.output = T)
+Sys.time() - trainstart
+```
+
+```{r evaluate the 4th ANN}
+#drop the Price column because its the predicted value
+toyota.training.pred <- neuralnet::compute(toyota.nn, toyota.range.train[,2:18])
+
+toyota.training.predictions <- toyota.training.pred$net.result*(max(toyota$Price)-min(toyota$Price))+min(toyota$Price)
+toyota.training.actuals <- toyota[trainIndex,1]
+
+#training set RMSE
+RMSE(toyota.training.predictions, toyota.training.actuals)
+
+toyota.validation.pred <- neuralnet::compute(toyota.nn, toyota.range.valid[,2:18])
+
+toyota.validation.predictions <- toyota.validation.pred$net.result*(max(toyota$Price)-min(toyota$Price))+min(toyota$Price)
+toyota.validation.actuals <- toyota[-trainIndex,1]
+
+#validation set RMSE
+RMSE(toyota.validation.predictions, toyota.validation.actuals)
+```
+
+i. RMSE for the the training set decreases with each additional layer and more nodes in each layer. This is because there are more nodes/weights to capture the relationships between each variable and their impact on the final price of a Corolla.
+
+ii. The RMSE for the validation data increases however, using only a single partition to train my model I am likely overfitting the test set and not finding any additional relationships/benefit by increasing the number of nodes/layers without any sort of additional partition or ensemble of ANNs.
+
+iii. When deciding on a number of nodes/hidden layers its important to think about accuracy and train time. Because the number of new data points that I believe the car dealership will aquire (a low frequency of sales) a higher number of hidden layers and nodes could be justified. I would recommend a larger number of hidden layers (5-6) because we could use the entire dataset as the training set, and retrain the production model with each data point or even 1 time a night (or not if there is no new data) with relative ease.
+
+### 11.4 East-West Airlines
 
