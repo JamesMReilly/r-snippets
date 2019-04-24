@@ -1,0 +1,37 @@
+---
+title: "Bankruptcy Case Study"
+author: "Jim Reilly"
+date: "April 14, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+```
+
+
+```{r load libraries, message = FALSE, echo = FALSE}
+library(Boruta)
+
+```
+
+
+```{r load the data}
+bankruptcy <- read.csv("data/Bankruptcy.csv")
+set.seed(4567)
+
+
+bankruptcy.boruta <- Boruta(D ~ ., data = bankruptcy, doTrace = 1) 
+print(bankruptcy.boruta)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

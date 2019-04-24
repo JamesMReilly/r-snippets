@@ -1,0 +1,10 @@
+set.seed(123)
+x = round(rnorm(30,30,10), 0)
+y = round(rnorm(30,30,10), 0)
+treatment = c(rep(1,10), rep(0,20))
+data = as.data.frame(cbind(x,y,treatment))
+datareshape = reshape(data,varying = list(c("x", "y")), times = c(1,2), direction = "long")
+colnames(datareshape) = c("treatment", "time", "x", "id")
+library(car)
+anova = Anova(lm(x~treatment*time, data=datareshape), type="III")
+anova
