@@ -2,7 +2,9 @@
 title: "Bankruptcy Case Study"
 author: "Jim Reilly"
 date: "April 14, 2019"
-output: html_document
+output:
+  html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -10,28 +12,189 @@ knitr::opts_chunk$set(echo = TRUE)
 rm(list=ls())
 ```
 
-
 ```{r load libraries, message = FALSE, echo = FALSE}
 library(Boruta)
-
+library(caret)
+library(randomForest)
 ```
-
 
 ```{r load the data}
 bankruptcy <- read.csv("data/Bankruptcy.csv")
+head(bankruptcy)
+```
+
+### 1: Identifying duplicate information
+
+```
+What data mining technique(s) would be appropriate in assessing whether there are groups of variables that convey the same information and how important that information is? Conduct such an analysis.
+```
+
+To identify groups of variables that convey the same information we should first check for variables that contain no information by looking for near-zero variance. Variables that contain mostly a single value carry almost not unique information about each record as the variable does not vary with our predicted class. We can use the package `caret` and its `nearZeroVar` function to find these programmatically.
+
+```{r identify near zero variance}
+nearZeroVar(bankruptcy, names = TRUE)
+```
+
+There are no variables that convey no information, which means we should next check for variables that do carry information but it is nearly identical. These are linearly correlated variables. We can again use `caret` and the function `findLinearCombos` to find variables that are dependent.
+
+```{r identify linear combos}
+findLinearCombos(bankruptcy)
+```
+
+No variables were found to contain the linearly dependent information. This tells us that each variable in itself is unique and does not share the exact information of any other variable. Finally we must identify the important information, we can use the Boruta method which builds random forests to search for important features. The algorithm will eliminate "rejected" attribtues if they contribute little value in producing a correct output through its addition to any given random tree in the forest.
+
+```{r fig.width=15, fig.height=8}
+
 set.seed(4567)
 
-
-bankruptcy.boruta <- Boruta(D ~ ., data = bankruptcy, doTrace = 1) 
+#perform boruta, removing the labels and meta data
+bankruptcy.boruta <- Boruta(D ~ .-NO -YR, data = bankruptcy, doTrace = 1) 
 print(bankruptcy.boruta)
+plot(bankruptcy.boruta)
 ```
 
-## Including Plots
+The green boxes are the important variables as determined by the boruta method from most to least important:
 
-You can also embed plots, for example:
+R9, R21, R24, R18, R15, R14, R23, R17, R4, R1, R13, R7, R3, and R19
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+These variables from their codes are:
+
+R1 CASH/CURDEBT
+R3 CASH/ASSETS
+R4 CASH/DEBTS
+R6 CFFO/ASSETS
+R7 CFFO/DEBTS
+R13 INC/SALES
+R14 INC/ASSETS
+R15 INC/DEBTS
+R17 INCDEP/ASSETS
+R18 INCDEP/DEBTS
+R19 SALES/REC
+R21 ASSETS/DEBTS
+R23 WCFO/ASSETS
+R24 WCFO/DEBTS
+
+
+The plot also tells us the relative importance of each variable.
+
+### 2: Characterizing bankrupt behavior vs. Predicting bankruptcy
+
+```
+Comment on the distinct goals of profiling the characteristics of bankrupt firms versus simply predicting (black box style) whether a firm will go bankrupt and whether both goals, or only one, might be useful. Also comment on the classification methods that would be appropriate in each circumstance.
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+The goal of identifying the characteristics of a bankrupt firm is specifically to generalize what the dependent variables of the bankrupt output class looks like. Through this we could take unlabled data, and cluster points into our "profile" of a bankrupt company or assign them to the non-bankrupt class. We're looking more at similarity in this case through the distance of each variable. We could use manhattan distance or euclidean distance to compare banks.
+
+Building a model that predicts if firms are to go bankrupt makes an estimate of predicting a class based on the current data. The goals differ in that we will generate a propensity score for each class and select a threshold to assign it to a class. This takes into account each variables predictive power and not just distance scores. Since this problem has 2 classes we could benefit from using a binary classifier. We could also use random forest, which the boruta method used to select important variables.
+
+I believe a binary classifier would provide more value in risk assessment, to determine if a company is worth an investment or a loan from a bank. Identifying the characteristics of bankrupt companies is more useful for comaprison of a companies own performance to a "bankrupt" company in the same industry.
+
+### 3: Data exploration
+
+```
+Explore the data to gain a preliminary understanding of which variables might be important in distinguishing bankrupt from nonbankrupt firms.
+```
+
+Below is a side-by-side box plot of every variable, and analysis is beneath all plots. I use a for loop to simplify the code considerably
+
+
+```{r}
+colnames(bankruptcy) <- c("ID",
+"Output",
+"Year",
+"CASH/CURDEBT",
+"CASH/SALES",
+"CASH/ASSETS",
+"CASH/DEBTS",
+"CFF0/SALES",
+"CFFO/ASSETS",
+"CFFO/DEBTS",
+"COGS/INV",
+"CURASS/CURDEBT",
+"CURASS/SALES",
+"CURRASS/ASSETS",
+"CURDEBT/DEBTS",
+"INC/SALES",
+"INC/ASSETS",
+"INC/DEBTS",
+"UBCDEP/SALES",
+"INCDEP/ASSETS",
+"INCDEP/DEBTS",
+"SALES/REC",
+"SALES/ASSETS",
+"ASSETS/DEBTS",
+"WCFO/SALES",
+"WCFO/ASSETS",
+"WCFO/DEBTS"
+)
+
+for (ratio in 4:27) {
+print(ggplot(data = bankruptcy, aes(x = as.factor(Output), y = bankruptcy[,ratio])) + geom_boxplot() + labs(title = paste(colnames(bankruptcy)[ratio], 'Ratio for bankrupt and non-bankrupt companies')))
+}
+```
+
+
+I observed that the box plots tell the same story as the boruta importance chart. The most important variable, the CURASS/CURDEBT ratio had a significant difference between the 2 classes, while the least important (but still significant) variable R9 showed little difference. This could mean that it has some nonlinear correlation with other variables that help predict bankruptcy that is difficult to see in a 1-d comparison such as a box plot. 
+
+For variables that the boruta method rejected it is harder to see the importance through the box plot. R20 for example the median values are close eachother but there still seems to be some information difference in the top quartile that I would have expected to be more significant.
+
+### 4: Produce models
+
+Before I build models I will select a training and test set, and build each model with the same partition.
+
+```{r test and train set}
+#reload variables to reset the illegal column names i set before
+bankruptcy <- read.csv("data/Bankruptcy.csv")
+
+
+set.seed(3456)
+trainIndex <- createDataPartition(bankruptcy$D, p = 0.8, list = FALSE)
+train <- bankruptcy[trainIndex, ]
+test <- bankruptcy[-trainIndex, ]
+```
+
+
+Random Forest:
+
+```{r random forest}
+bankruptcy.rf <- randomForest(D ~ . -NO -YR, data = train, ntree = 500, mtry = 4, nodesize = 5, importance = TRUE)
+bankruptcy.rf.pred <- predict(bankruptcy.rf, test, type = "class")
+
+imp <- as.data.frame(varImp(bankruptcy.rf))
+imp <- data.frame(overall = imp$Overall,
+           names   = rownames(imp))
+imp[order(imp$overall,decreasing = T),]
+confusionMatrix(factor(as.numeric(bankruptcy.rf.pred > 0.5)), as.factor(test$D))
+```
+
+Binary classification with forward feature selection:
+
+```{r glm, warning=FALSE}
+base.log <- glm(D ~ 1, data = train, family = "binomial")
+
+bankruptcy.glm <- step(base.log, scope = ~ R1+R2+R3+R4+R5+R6+R7+R8+R9+R10+R11+R12+R13+R14+R15+R16+R17+R18+R19+R20+R21+R22+R23+R24, steps = 24, direction = "forward", trace = FALSE)
+
+summary(bankruptcy.glm)
+
+bankruptcy.glm.pred <- predict(bankruptcy.glm, test, type = "response")
+confusionMatrix(factor(as.numeric(bankruptcy.glm.pred > 0.5)), factor(test$D))
+```
+
+
+Both models had identical classification performance on these samples. They did pick different variables to come to the classifications however. 
+
+### 5: Comments on importance of variables
+
+```
+Based on the above, comment on which variables are important in classification, and discuss their effect
+```
+
+The binary classifier selected  6 variables: R9 + R18 + R10 + R2 + R17 + R1
+
+The 6 most important variables in the random forest were: R9 + R21 + R18 + R24 + R17 + R15
+
+The boruta method described the most important variables as: R9 + R21 + R24 + R18 + R15 + R14
+
+The random forest will use as many variables as it sees fit, where as the step function will punish models that add variables (to curb overfitting) without improving importance greatly.
+
+Each model found R9 to be the most important classifier, while R21, R17, R18 where all found in common between the methods several times. With more data we could produce larger training sets and test sets to get a more precise accuracy.
