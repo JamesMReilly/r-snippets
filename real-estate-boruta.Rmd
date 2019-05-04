@@ -1,0 +1,91 @@
+---
+title: "Untitled"
+author: "Jim Reilly"
+date: "April 29, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rm(list=ls())
+```
+
+
+```{r boruta all variables}
+houses <- read.csv("data/kc_house_data.csv")
+
+library(Boruta)
+
+set.seed(4567)
+
+#perform boruta, removing the labels and meta data
+#houses.boruta <- Boruta(price ~ .-id -date -price, data = houses, doTrace = 1) 
+print(houses.boruta)
+plot(houses.boruta)
+```
+
+```{r boruta less location data}
+set.seed(4567)
+
+#perform boruta, removing the labels and meta data
+#houses.boruta2 <- Boruta(price ~ .-id -date -price -zipcode -long -lat, data = houses, doTrace = 1) 
+print(houses.boruta2)
+plot(houses.boruta2)
+
+```
+
+
+```{r random forest}
+
+library(randomForest)
+library(caret)
+
+set.seed(3456)
+trainIndex <- createDataPartition(houses$price, p = 0.8, list = FALSE)
+train <- houses[trainIndex, ]
+test <- houses[-trainIndex, ]
+
+houses.rf <- randomForest(price ~ . -id -date -price -long -lat, data = train, ntree = 500, mtry = 4, nodesize = 5, importance = TRUE)
+houses.rf.pred <- predict(houses.rf, test)
+
+imp <- as.data.frame(varImp(houses.rf))
+imp <- data.frame(overall = imp$Overall,
+           names   = rownames(imp))
+imp[order(imp$overall,decreasing = T),]
+```
+
+```{r neural net}
+library(neuralnet)
+library(dplyr)
+
+houses.nn <- neuralnet(formula = price ~ bedrooms + bathrooms + sqft_living + sqft_lot + floors + waterfront + view + condition + grade + sqft_above + sqft_basement + yr_built + yr_renovated + zipcode + lat + long + sqft_living15 + sqft_lot15, data = train, hidden = c(18,9) , linear.output = T)
+
+houses.test <- test %>% select('bedrooms', 'bathrooms', 'sqft_living', 'sqft_lot', 'floors', 'waterfront', 'view', 'condition', 'grade' ,'sqft_above', 'sqft_basement', 'yr_built', 'yr_renovated', 'zipcode', 'lat', 'long', 'sqft_living15', 'sqft_lot15')
+
+neuralnet::compute(houses.nn, houses.test[,1:18])
+```
+
+```{r train by zip code}
+zips <- houses %>% distinct(zipcode)
+zips <- zips$zipcode
+houses.lr <- list()
+mape <- list()
+rm(actuals_pred)
+for(i in 1:length(zips)) {
+  zip <- zips[i]
+  housesInZipcode <- houses %>% filter(zipcode == zip)
+  trainIndex <- createDataPartition(housesInZipcode$price, p = 0.8, list = FALSE)
+  train <- housesInZipcode[trainIndex, ]
+  test <- housesInZipcode[-trainIndex, ]
+  baselr <- lm(price ~ 1, data = train);
+
+  houses.lr <- step(baselr, scope = ~ +bedrooms +bathrooms +sqft_living +sqft_lot +floors +waterfront +view +condition +grade +sqft_above +sqft_basement +yr_built +yr_renovated +zipcode +lat +long +sqft_living15 +sqft_lot15, direction = "forward", trace = FALSE)
+  test
+  actuals_pred <- predict(houses.lr, data = test)
+  mape[i] <- mean(abs((actuals_pred - test$price))/test$price)
+  plot(x = test$price, y = actuals_pred)
+}
+baselr <- lm(price ~ 1, data = train);
+
+houses.lr[1] <- step(baselr, scope = ~ +bedrooms +bathrooms +sqft_living +sqft_lot +floors +waterfront +view +condition +grade +sqft_above +sqft_basement +yr_built +yr_renovated +zipcode +lat +long +sqft_living15 +sqft_lot15, direction = "forward", trace = FALSE)
+```
