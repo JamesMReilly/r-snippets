@@ -1,9 +1,17 @@
-/data/*
-/reports/*
 /heart-disease-cache/*
-/heart-disease-figure/*
-*.pdf
-*.html
+# Data and report outputs
+*/data/*
+*/reports/*
+*/*.html
+*/*.pdf
+*/*.zip
+
+# Presentation caches
+*/heart-disease-cache/*
+*/heart-disease-figure/*
+
+# R data / history
 .Rhistory
 .RData
-*.zip
+
+
