@@ -14,6 +14,8 @@ library(readxl)
 library(cellranger)
 library(dplyr)
 library(purrr)
+library(maps)
+library(sf)
 ```
 
 
@@ -27,14 +29,50 @@ Using `readxl`, load the dataset into memory
 pop_est_2016 <- read_excel("data/nst-est2016-01.xlsx", range="J10:J60", col_names = FALSE)
 states <- read_excel("data/nst-est2016-01.xlsx", range="A10:A60", col_names = FALSE)
 
+# Remove a '.' character infront of each string from the read file
 states <- states %>%
-  map(function(x) substring(x, first = 2))
-
-pop_per_state <- cbind(states, pop_est_2016)
+  purrr::map(function(x) substring(x, first = 2))
 ```
 
+The data from an excel spreadsheet. Looking at the file, only 2 ranges were required to plot the estimated population per state. To make graphing easier, its best to arrange this data into a single dataframe before passing it to `ggplot`
+
+```{r preprocessing the data}
+# Construct a dataframe from the 2 lists and label the columns
+pop_per_state <- map2_dfr(states, pop_est_2016, ~ tibble(A = .x, B = .y))
+colnames(pop_per_state) <- c("State", "Population")
+
+#reorder the factor levels by population, descending for graphing
+pop_per_state[order(-pop_per_state$Population),]
+pop_per_state$State <- factor(pop_per_state$State, levels = pop_per_state$State[order(-pop_per_state$Population)])
+
+#a variable from 1.0 to 0 representing the ratio between a states size and the largest state for coloration in a map plot
+pop_per_state$Index <- pop_per_state$Population %>%
+  purrr::map_dbl(function(pop) pop / max(pop_per_state$Population))
+
+# plot a col chart of the population estimate per state in descending order
+ggplot(data = select(pop_per_state, State, Population), aes(x = State, y = Population)) + geom_col() + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+pop_map <- maps::map("state", plot = FALSE, fill = TRUE)
+pop_map <- sf::st_as_sf(pop_map)
+pop_map <- pop_map %>% filter(ID != 'district of columbia')
+pop_map[c('ID')] <- lapply(pop_map[c('ID')], as.character)
+
+# combine with population data
+pop_map <- pop_map %>% 
+  left_join(pop_per_state %>% mutate(State = tolower(State)),by = c("ID" = "State")) 
+
+ggplot(pop_map) + geom_sf(aes(fill = Index)) + scale_fill_viridis_c(option = "plasma")
+
+```
+
+California has the highest estimated population and Wyoming has the smallest. Interestingly, if the District of Columbia became a state it would be more populous that 2 existing states (Wyoming and Vermont)
+
+Using the gradient map graph, its easy to see how relative to california there is virtually no discernable difference between most of the states' population. It would take a transform such as `sqrt` or `log` to visualize more meaningful population discrepency
 
 
+```{r}
+
+```
 
 ```{r state plot}
 # wrangle presidential election data
