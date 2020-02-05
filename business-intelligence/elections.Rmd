@@ -1,0 +1,85 @@
+---
+title: "Election Data"
+author: "Jim Reilly"
+date: "February 4, 2019"
+output: html_document
+---
+
+Load the required libraries, `ggplot2`, `tidyverse`, and `readxl`
+
+```{r libraries, message = FALSE}
+library(ggplot2)
+library(tidyverse)
+library(readxl)
+library(cellranger)
+library(dplyr)
+library(purrr)
+```
+
+
+## Datasets
+
+The datasets for this exercise are two Excel spreadsheets (`.xlsx`) across multiple tables with federal election data from the 2016 Senate, House, and Presidential election. As well as election results for the previous 5 presedential elections.
+
+Using `readxl`, load the dataset into memory
+
+```{r loading the data}
+pop_est_2016 <- read_excel("data/nst-est2016-01.xlsx", range="J10:J60", col_names = FALSE)
+states <- read_excel("data/nst-est2016-01.xlsx", range="A10:A60", col_names = FALSE)
+
+states <- states %>%
+  map(function(x) substring(x, first = 2))
+
+pop_per_state <- cbind(states, pop_est_2016)
+```
+
+
+
+
+```{r state plot}
+# wrangle presidential election data
+library(dplyr)
+library(politicaldata)
+
+pres <- politicaldata::pres_results
+
+pres <- pres %>% 
+  filter(year%in% 2008:2016)
+
+
+pres$state_name = tolower(state.name[match(pres$state,state.abb)]) # we need the full name of the state to join with the map
+
+
+# get map data
+library(maps)
+library(sf)
+pres_map <- maps::map("state", plot = FALSE, fill = TRUE) # acquirig the data frame
+
+pres_map <- sf::st_as_sf(pres_map) # changing the lat-long format to a simple feature object
+
+pres_map <- pres_map %>% filter(ID != 'district of columbia')
+
+pres_map[c('ID')] <- lapply(pres_map[c('ID')], as.character)
+
+# combine with election data
+pres_map <- pres_map %>% 
+  left_join(pres,by = c("ID" = "state_name")) # joining the map with the political data
+
+# plotting with ggplot2
+library(ggplot2)
+gg <- ggplot(pres_map,
+             aes(fill=dem-rep>0),
+             col='black') +
+  geom_sf(aes(alpha=abs(dem-rep))) +
+  coord_sf(crs = "+proj=aea +lat_1=25 +lat_2=50 +lon_0=-100",ndiscr = 0) + # change the projection from mercator (blegh)
+  scale_fill_manual(values=c("TRUE"="blue","FALSE"="red")) +
+  scale_alpha(range=c(0.1,1)) +
+  facet_wrap(~year) +
+  theme_void() +
+  theme(legend.position='none')
+
+gg
+
+#ggsave(plot = gg,filename = 'us_election_2008_2012_2016.png',width=12,height=3,units='in')
+
+```
