@@ -70,7 +70,12 @@ California has the highest estimated population and Wyoming has the smallest. In
 Using the gradient map graph, its easy to see how relative to california there is virtually no discernable difference between most of the states' population. It would take a transform such as `sqrt` or `log` to visualize more meaningful population discrepency
 
 
-```{r}
+```{r load percentage of votes for candidate}
+results_2016 <- read_excel("data/federalelections2016.xlsx", sheet = "2016 Pres General Results") %>%
+  select(state = STATE, last_name = 'LAST NAME', party = PARTY, votes = 'GENERAL RESULTS', vote_percentage = 'GENERAL %') %>%
+  filter(last_name != 'Scattered') %>%
+  filter(party != 'W') %>%
+  dplyr::mutate_if(sapply(results_2016, is.character), as.factor)
 
 ```
 
