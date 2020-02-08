@@ -16,6 +16,7 @@ library(dplyr)
 library(purrr)
 library(maps)
 library(sf)
+library(sets)
 ```
 
 
@@ -75,8 +76,12 @@ results_2016 <- read_excel("data/federalelections2016.xlsx", sheet = "2016 Pres 
   select(state = STATE, last_name = 'LAST NAME', party = PARTY, votes = 'GENERAL RESULTS', vote_percentage = 'GENERAL %') %>%
   filter(last_name != 'Scattered') %>%
   filter(party != 'W') %>%
-  dplyr::mutate_if(sapply(results_2016, is.character), as.factor)
+  dplyr::mutate_if(is.character, as.factor)
 
+results_2016$votes_per_candidate <- apply(results_2016[,c("last_name", "votes")], 1, function(x) tuple(x[1], x[2]))
+
+  
+split(results_2016$votes, results_2016$state)
 ```
 
 ```{r state plot}
