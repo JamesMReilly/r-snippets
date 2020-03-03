@@ -1,0 +1,39 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r message=FALSE}
+library(readxl)
+library(ggplot2)
+library(dplyr)
+```
+
+
+```{r}
+df <- read_excel("data/Superstore.xls", col_names = TRUE)
+
+df$Region <- factor(df$Region)
+df$Category <- factor(df$Category)
+
+
+df <- df %>%
+  select(Profit,Sales) %>% 
+  aggregate(by=list(Region=df$Region, Category=df$Category), FUN=sum)
+
+```
+
+```{r}
+ggplot(df, aes(fill=Category, y=Sales, x=Region)) +
+  geom_bar(position="stack", stat="identity") +
+  scale_fill_manual(values=c("Furniture" = "blue", "Office Supplies" = "orange", "Technology" = "red"))
+
+ggplot(df, aes(fill=Category, y=Profit, x=Region)) +
+  geom_bar(position="stack", stat="identity") +
+  scale_fill_manual(values=c("Furniture" = "blue", "Office Supplies" = "orange", "Technology" = "red"))
+
+ggplot(df, aes(fill=Category, y=Profit/Sales, x=Region)) +
+  geom_bar(position="stack", stat="identity") +
+  scale_fill_manual(values=c("Furniture" = "blue", "Office Supplies" = "orange", "Technology" = "red"))
+```
