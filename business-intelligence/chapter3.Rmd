@@ -40,6 +40,7 @@ df$Q <- c("Q1","Q2","Q3","Q4","Q1","Q2","Q3","Q4","Q1","Q2","Q3","Q4","Q1","Q2",
 df$Year <- c("1985","1985","1985","1985","1986","1986","1986","1986","1987","1987","1987","1987","1988","1988","1988","1988","1989","1989","1989","1989")
 
 df$Q <- factor(df$Q, levels=c("Q1","Q2","Q3","Q4"))
+df$Year <- factor(df$Year)
 ```
 
 ```{r}
@@ -56,8 +57,19 @@ ggplot(df, aes(x=Quarter, y=Shipments, group=1)) +
 ```
 
 ```{r}
-ggplot(df, aes(x=Quarter, y=Shipments, group=Q)) + 
+ggplot(df, aes(x=Year, y=Shipments, colour=Q, group=Q)) + 
   geom_line() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   scale_y_continuous(limits = c(3500, 5000))
+```
+
+```{r}
+df <- df %>%
+  select(Shipments) %>%
+  aggregate(by=list(Year=df$Year), FUN=sum)
+
+ggplot(df, aes(x=Year, y=Shipments, group=1)) + 
+  geom_line() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  scale_y_continuous(limits = c(15000, 20000))
 ```
