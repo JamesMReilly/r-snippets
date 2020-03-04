@@ -92,5 +92,20 @@ ggplot(df, aes(x=Year, y=Shipments, group=1)) +
 
 The years were aggregated in using `dplyr` to group all 4 quarters with the `sum` function
 
+## 3.2: Sales of Riding Mowers
 
+```{r}
+df <- read.csv(file = "./data/RidingMowers.csv")
+
+head(df)
+
+ggplot(df, aes(x=Income, y=Lot_Size, colour=Ownership)) + 
+  geom_point(size = 4, aes(colour= Ownership)) +
+  scale_colour_viridis_d()
+
+```
+
+A scatter plot differentiated by owner category shows a clear differentiation between Nonowners and Owners in the dataset across both variables
+
+## 3.3: Laptop Sales at a London Computer Chain
 
