@@ -1,14 +1,17 @@
 ---
-title: "R Notebook"
+title: "Chapter 3 Excercises"
+author: "Jim Reilly"
 output: html_notebook
 ---
 
-##3.1: Shipments of Household Appliances
+## 3.1: Shipments of Household Appliances
 
 ```{r}
 library(ggplot2)
 library(dplyr)
 ```
+
+Prior to making visualizations with the data, I redefine the levels (or order) of the Quarter factor by hand so that all graphs will follow a Q1->Q2->Q3->Q4 order by year. I also added a column for the Quarter and Year separated by hand, so that I can eventually aggregate by these variables for further summary.
 
 ```{r}
 df <- read.csv(file = "./data/ApplianceSHipments.csv")
@@ -43,18 +46,27 @@ df$Q <- factor(df$Q, levels=c("Q1","Q2","Q3","Q4"))
 df$Year <- factor(df$Year)
 ```
 
+
+**a.** Create a well-formatted time plot of the data using R.
+
 ```{r}
 ggplot(df, aes(x=Quarter, y=Shipments, group=1)) + 
   geom_line() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
+**b.** Does there appear to be a quarterly pattern? zoom in to the range of 3500-5000 on the _y_-axis
 ```{r}
 ggplot(df, aes(x=Quarter, y=Shipments, group=1)) + 
   geom_line() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   scale_y_continuous(limits = c(3500, 5000))
 ```
+
+There seems to be an annual cycle with the highest shipments appearing in Q2 every year, and the least in Q4 most years. This can be seen by plotting the performance of each quarter against each other.
+
+
+**c.** Create a chart with four separate lines, one for each Quarter, is there a difference between the quarters?
 
 ```{r}
 ggplot(df, aes(x=Year, y=Shipments, colour=Q, group=Q)) + 
@@ -62,6 +74,10 @@ ggplot(df, aes(x=Year, y=Shipments, colour=Q, group=Q)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   scale_y_continuous(limits = c(3500, 5000))
 ```
+
+In all but one year, the most shipments was in Q2 and the least in Q4. The patterns seen in the previous visualization were confirmed objectively.
+
+**d.** Create a line graph of the series at a yearly aggregated level
 
 ```{r}
 df <- df %>%
@@ -73,3 +89,8 @@ ggplot(df, aes(x=Year, y=Shipments, group=1)) +
   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
   scale_y_continuous(limits = c(15000, 20000))
 ```
+
+The years were aggregated in using `dplyr` to group all 4 quarters with the `sum` function
+
+
+
