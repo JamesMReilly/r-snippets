@@ -109,3 +109,39 @@ A scatter plot differentiated by owner category shows a clear differentiation be
 
 ## 3.3: Laptop Sales at a London Computer Chain
 
+**a.** At what price are the laptops actually selling
+
+```{r}
+df <- read.csv(file = "./data/LaptopSales.csv")
+
+df <- df %>%
+  filter(!is.na(Retail.Price))
+
+df$store <- factor(df$store.X) 
+
+set.seed(15) # so sample() is reproducible
+newnames <- paste0("Store ", LETTERS[1:nlevels(df$store)], 1:nlevels(df$store))
+df$anon <- as.character(factor(df$store, labels=sample(newnames)))
+
+
+df.average <- df %>%
+  select(Retail.Price) %>%
+  aggregate(by=list(Store=df$anon), FUN=mean)
+
+ggplot(df.average, aes(x = Store, y = Retail.Price)) +
+  geom_col() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  ylim(0,550)
+```
+
+The margins are very close, but it looks like Store J10 has the highest average sale price and Store F6 has the lowest, a box plot will introduce better comparisons
+
+**b.** box plot comparisons
+
+```{r}
+ggplot(df, aes(x=anon, y=Retail.Price)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+
+Store J10 has the higest average. Several stores sell laptops in what appears to be the same price range such as C3, F6, G7, H8, and K11.
