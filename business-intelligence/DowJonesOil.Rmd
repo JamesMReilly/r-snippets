@@ -1,0 +1,87 @@
+---
+title: "Dow Jones & Oil Drilling"
+author: "Jim Reilly"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+```{r, message=FALSE, render=FALSE}
+library(dplyr)
+library(ggplot2)
+```
+
+
+The purpose of this excercise is to identify whether there is a relationship between oil drilling and the Dow Jones Industrial Average. By analyzing the dataset over the same time range (Jan 1, 2000-July 1, 2019) we can consider whether a relationship exists for further investigation.
+
+
+Prior to loading the data I manipulated the provided Dow Jones dataset (which was in a .tsv format) into a more computer readable format with all comma's removed from numbers. For the Drilling data, some spacing issues on the `.csv` 
+
+## Loading the Data
+
+```{r}
+dj <- read.csv(file = "./data/dowjones.csv")
+
+#dj$Year <- factor(dj$Year)
+#dj$Month <- factor(dj$Month)
+
+drill <- read.csv(file = "./data/Drilling Table.csv")
+
+#drill$Year <- factor(drill$Year)
+#drill$Month <- factor(drill$Month)
+```
+
+## Filter data for comparison
+
+THe Dow Jones data is one entry per month over a period of 2000-2019. The Drilling data is a collection of yearly averages from select years as far back as 1950 to 2019, with monthly data for 2017 through 2019.
+
+```{r, look at the data}
+head(dj, n = 10)
+head(drill, n = 10)
+```
+
+Because of the limited datarange in the Dow Jones set, it will only make sense to compare the data over the same range (2000-2019), We also only monthly data for 2 years so we should compare annual Drilling data to annual Dow Jones data over that range, and we can consider month to month comparisons or 2017-2019
+
+```{r, filter to same daterange}
+drill <- drill %>%
+  filter(Year >= 2000)
+
+drill.monthly <- drill %>%
+  filter(as.character(Month) != "Average")
+
+drill.monthly$id <- 1:nrow(drill.monthly)
+
+drill.average <- drill %>%
+  filter(as.character(Month) == "Average")
+
+dj.monthly <- dj %>%
+  select(Year, Open, High, Low, Close, Volume) %>%
+  filter(Year >= 2017)
+
+dj.monthly$id <- 1:nrow(dj.monthly)
+
+dj.average <- dj %>%
+    select(Open, High, Low, Close, Volume) %>%
+    aggregate(by=list(Year=dj$Year), FUN=mean)
+```
+
+
+Plotting the datasets against each other over the same range will show any indication of a correlation
+
+```{r}
+ggplot(drill.average, aes(x = Year, y=(Total))) +
+  geom_line()
+
+ggplot(dj.average, aes(x = Year, y=Open, group=1)) +
+  geom_line()
+```
+
+```{r}
+ggplot(drill.monthly, aes(x = id, y = Total)) +
+  geom_line()
+
+ggplot(dj.monthly, aes(x = id, y = Open, group=1)) +
+  geom_line()
+```
+
+Comparing the monthly open to the oil drilling, its difficult to see any greater correlation. The 2008 financial crisis is shown on both the Dow Jones and the oil industry via a dip followed by a return to previous levels over a 2 year period. The Dow Jones Industrial Average differentiated from Oil after that by continuing a rapid growth while the Oil totals actually decreased.
