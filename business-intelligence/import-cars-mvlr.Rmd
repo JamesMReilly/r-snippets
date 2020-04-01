@@ -1,0 +1,61 @@
+---
+title: "Multivariate Linear Regression for Imported Car Prices"
+author: "Jim Reilly"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+
+```{r, message=FALSE, include=FALSE}
+library(forecast)
+```
+
+## Data
+
+Load the data and add column labels
+```{r}
+df <- read.csv(file = "./data/imports-85.data", header = FALSE)
+columnNames <- c(
+  "symboling",        
+  "normalized-losses",
+  "make",
+  "fuel-type",        
+  "aspiration",       
+  "num-of-doors",     
+  "body-style",    
+  "drive-wheels",     
+  "engine-location",  
+  "wheel-base", 
+  "length",      
+  "width",          
+  "height",           
+  "curb-weight",      
+  "engine-type",     
+  "num-of-cylinders", 
+  "engine-size",
+  "fuel-system",     
+  "bore",     
+  "stroke",           
+  "compression-ratio",
+  "horsepower",
+  "peak-rpm",      
+  "city-mpg",        
+  "highway-mpg",      
+  "price")
+
+colnames(df) <- columnNames
+```
+
+
+Normalize the data with caret `preProcess` function
+```{r normalize}
+#find what columns are numeric
+numerics <- grep(paste(c("numeric", "integer"), collapse="|"), lapply(cereal,class))
+
+#define the normalization function
+normalize <- function(x) { (x - min(x)) / (max(x) - min(x)) }
+
+#apply the function to the numeric columns
+cereal.normal<- apply(cereal[,numerics], MARGIN = 2, FUN = normalize) 
+row.names(cereal.normal) <- cereal$name
