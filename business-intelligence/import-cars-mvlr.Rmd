@@ -9,13 +9,15 @@ output:
 
 ```{r, message=FALSE, include=FALSE}
 library(forecast)
+library(caret)
 ```
 
 ## Data
 
 Load the data and add column labels
+
 ```{r}
-df <- read.csv(file = "./data/imports-85.data", header = FALSE)
+df <- read.csv(file = "./data/imports-85.data", header = FALSE, na.strings = "?")
 columnNames <- c(
   "symboling",        
   "normalized-losses",
@@ -48,14 +50,36 @@ colnames(df) <- columnNames
 ```
 
 
-Normalize the data with caret `preProcess` function
+## Exploration
+
+First to identify missing data, our dataset represents a missing value with the `?` character. Identifying the number of `?` values and where they occur should guide our filtering strategy. I've converted `?` to NA in the `read.csv` expression above.
+
+```{r}
+sapply(df, function(x) sum(is.na(x)))
+```
+
+Several columns are missing *some* values, however the `normalized-losses` column is missing a considerable amount. I will drop the column and subsequently remove any rows with missing values after.
+
+```{r}
+df.preprocessed <- df[,-2]
+df.preprocessed <- na.omit(df.preprocessed)
+```
+
+After removing the column 2 and accepting only the complete cases of the remaining columns, we actually only have to remove 12 rows which are missing at least one value. This leaves us with 193 cars to build a model. 
+
+## Preprocessing
+
+Since the numerical variables have differening scales, I will normailze all columns to a range between 0.0 - 1.0
+
 ```{r normalize}
 #find what columns are numeric
-numerics <- grep(paste(c("numeric", "integer"), collapse="|"), lapply(cereal,class))
+numerics <- grep(paste(c("numeric", "integer"), collapse="|"), lapply(df.preprocessed,class))
 
 #define the normalization function
 normalize <- function(x) { (x - min(x)) / (max(x) - min(x)) }
 
 #apply the function to the numeric columns
-cereal.normal<- apply(cereal[,numerics], MARGIN = 2, FUN = normalize) 
-row.names(cereal.normal) <- cereal$name
+df.preprocessed[numerics]<- apply(df.preprocessed[,numerics], MARGIN = 2, FUN = normalize) 
+```
+
+
