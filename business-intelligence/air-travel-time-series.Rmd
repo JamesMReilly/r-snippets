@@ -1,0 +1,80 @@
+---
+title: "Effect of September 11 on Air Travel"
+author: "Jim Reilly"
+date: "4/7/2020"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load all required libraries, message=FALSE, include=FALSE}
+library(forecast)
+```
+
+
+## Loading the dataset
+
+```{r}
+df <- read.csv(file = "./data/Sept11Travel.csv")
+```
+
+
+
+## Setting up data partition before September 2001
+
+```{r}
+trainingRows <- 141
+validationRows <- nrow(df) - trainingRows
+
+df.train <- ts(df$AirRPM, start = c(1990,1), end = c(2001,08), frequency = 12)
+df.actual <- ts(df$AirRPM, start = c(1990,1), end = c(2004,04), frequency = 12)
+df.valid.naive <- naive(df.train, h=validationRows)
+df.valid.snaive <- snaive(df.train, h=validationRows)
+```
+
+
+## Plotting Air Travel Time Series
+
+```{r}
+plot(df.train, xlim=c(1991,2005), ylab="Revenue Passenger Miles", main="Air Travel Miles over Time")
+axis(1, at = seq(1990,2000.66), labels=format(seq(1990, 2000, 1)))
+lines(df.valid.naive$mean, lwd = 2, col = "blue", lty = 1)
+lines(df.valid.snaive$mean, lwd = 2, col = "red", lty = 1)
+lines(df.actual, col = "grey20", lty = 3)
+```
+
+## Repeating for Auto and Rail
+
+You can also embed plots, for example:
+
+```{r}
+
+df.train <- ts(df$VMT, start = c(1990,1), end = c(2001,08), frequency = 12)
+df.actual <- ts(df$VMT, start = c(1990,1), end = c(2004,04), frequency = 12)
+df.valid.naive <- naive(df.train, h=validationRows)
+df.valid.snaive <- snaive(df.train, h=validationRows)
+
+plot(df.train, xlim=c(1991,2005), ylab="Rail Passenger Miles", main="Rail Travel Miles over Time")
+axis(1, at = seq(1990,2000.66), labels=format(seq(1990, 2000, 1)))
+lines(df.valid.naive$mean, lwd = 2, col = "blue", lty = 1)
+lines(df.valid.snaive$mean, lwd = 2, col = "red", lty = 1)
+lines(df.actual, col = "grey20", lty = 3)
+```
+
+```{r}
+df.train <- ts(df$RailPM, start = c(1990,1), end = c(2001,08), frequency = 12)
+df.actual <- ts(df$RailPM, start = c(1990,1), end = c(2004,04), frequency = 12)
+df.valid.naive <- naive(df.train, h=validationRows)
+df.valid.snaive <- snaive(df.train, h=validationRows)
+
+plot(df.train, xlim=c(1991,2005), ylab="Vehicle Miles Travelled", main="Vehical Miles over Time")
+axis(1, at = seq(1990,2000.66), labels=format(seq(1990, 2000, 1)))
+lines(df.valid.naive$mean, lwd = 2, col = "blue", lty = 1)
+lines(df.valid.snaive$mean, lwd = 2, col = "red", lty = 1)
+lines(df.actual, col = "grey20", lty = 3)
+```
+

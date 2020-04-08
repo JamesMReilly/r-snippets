@@ -20,30 +20,30 @@ Load the data and add column labels
 df <- read.csv(file = "./data/imports-85.data", header = FALSE, na.strings = "?")
 columnNames <- c(
   "symboling",        
-  "normalized-losses",
+  "normalizedlosses",
   "make",
-  "fuel-type",        
+  "fueltype",        
   "aspiration",       
-  "num-of-doors",     
-  "body-style",    
-  "drive-wheels",     
+  "numdoors",     
+  "bodystyle",    
+  "drivewheels",     
   "engine-location",  
-  "wheel-base", 
+  "wheelbase", 
   "length",      
   "width",          
   "height",           
-  "curb-weight",      
-  "engine-type",     
-  "num-of-cylinders", 
-  "engine-size",
-  "fuel-system",     
+  "curbweight",      
+  "enginetype",     
+  "num-ofcylinders", 
+  "enginesize",
+  "fuelsystem",     
   "bore",     
   "stroke",           
-  "compression-ratio",
+  "compressionratio",
   "horsepower",
-  "peak-rpm",      
-  "city-mpg",        
-  "highway-mpg",      
+  "peakrpm",      
+  "citympg",        
+  "highwaympg",      
   "price")
 
 colnames(df) <- columnNames
@@ -75,6 +75,8 @@ Since the numerical variables have differening scales, I will normailze all colu
 #find what columns are numeric
 numerics <- grep(paste(c("numeric", "integer"), collapse="|"), lapply(df.preprocessed,class))
 
+numerics <- head(numerics, -1)
+
 #define the normalization function
 normalize <- function(x) { (x - min(x)) / (max(x) - min(x)) }
 
@@ -82,4 +84,29 @@ normalize <- function(x) { (x - min(x)) / (max(x) - min(x)) }
 df.preprocessed[numerics]<- apply(df.preprocessed[,numerics], MARGIN = 2, FUN = normalize) 
 ```
 
+## Model training
 
+To remove a potential source of bias in our model's performance, I will split the data into a train and test set using 80% of the available data in training. I will also only use the numerical variables before splitting the factors into dummies because of the limited number of data points.
+
+```{r}
+nrows <- nrow(df.preprocessed)
+set.seed(47) # set the seed so that the partition is always the same
+df.train.index <- sample(c(1:nrows), nrows * 0.8) #use 80% of the data as a training set
+selectedVars <- c("symboling", "wheelbase", "length", "width", "height", "curbweight", "enginesize", "bore", "stroke", "compressionratio", "horsepower", "peakrpm", "citympg", "highwaympg")
+
+lm.vars <- c("price", selectedVars)
+
+df.train <- df.preprocessed[df.train.index, lm.vars]
+df.valid <- df.preprocessed[-df.train.index, lm.vars]
+
+lm <- train(price ~ ., data = df.train, method = "lm")
+
+
+actuals_pred <- predict(lm, newdata = df.valid)
+mape <- mean(abs((actuals_pred - df.valid$price))/df.valid$price)
+plot(y = df.valid$price, x = actuals_pred, main = "Forecasted Price vs. Actual", xlab="Actual Price", ylab = "Forecasted Price")
+
+```
+
+
+Using all predictors, we have a model with a mean absolute percent error of `r mape`
