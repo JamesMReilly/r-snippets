@@ -1,7 +1,6 @@
 ---
 title: "Regression Modeling"
 author: "Jim Reilly"
-date: "4/14/2020"
 output: html_document
 ---
 
@@ -12,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r load all required libraries, message=FALSE, include=FALSE}
 library(forecast)
+library(TTR)
 ```
 
 ## Loading Data
@@ -25,19 +25,32 @@ head(df.seasonal)
 
 ## Time Series Regression
 
+To see the effect of seasonality, we can fit a regression model to the dataset and compare the data adjusted for seasonality and the dataset not adjusted.
 
 ```{r}
 seasonal.ts <- ts(df.seasonal$TOTALSA, start = c(1976, 1), end=c(2020,3), freq = 12)
 
 seasonal.arima <- Arima(seasonal.ts, order = c(1,0,0))
 seasonal.arima
+
+plot(seasonal.ts)
+
 ```
 
 ```{r}
 not.seasonal.ts <- ts(df.not.seasonal$TOTALNSA, start = c(1976, 1), end=c(2020,3), freq = 12)
 
 not.seasonal.arima <- Arima(not.seasonal.ts, order = c(1,0,0))
-not.seasonal.arima
+
+plot(not.seasonal.ts)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+The quality of fit is better on the seasonally adjusted data, selecting AIC as a specific tool to compare the same models fit on the different datasets, it is lowest for the seasonaly adjusted data.
+
+```{r}
+
+smoothed3 <- SMA(df.not.seasonal$TOTALNSA, n = 3)
+smoothed3.ts <- ts(smoothed3, start = c(1976, 1), end=c(2020,3), freq = 12)
+
+plot(smoothed3.ts)
+```

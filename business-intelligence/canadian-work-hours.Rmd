@@ -1,0 +1,56 @@
+---
+title: "Canadian Work Hours"
+author: "Jim Reilly"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load all required libraries, message=FALSE, include=FALSE}
+library(ggplot2)
+library(forecast)
+library(gridExtra)
+```
+
+## Load data
+
+```{r}
+df <- read.csv("./data/CanadianWorkHours.csv")
+plot(df$Year,df$Hours,type='l', xlab="Year", ylab="Hours Per Week", main="Average Annual Weekly Hours Spent by Canadian Manufacturing Workers")
+```
+
+## Analyze Trend
+
+First, to decide between seasonality and no seasonality there are no visible trends of seasonality appearing. No distinct peaks occur regularly at any point of the year. I will remove seasonality from early consideration and instead view Linear and Quadratic models. This generally makes sense because full-time work does not shift rapidly over the course of a year.
+
+```{r}
+p1 <- ggplot(df,aes(Year,Hours)) + 
+  geom_line() + 
+  stat_smooth(method="lm", se = FALSE) + 
+  labs(title="Linear Trend")
+p2 <- ggplot(df,aes(Year,Hours)) + 
+  geom_line() + 
+  stat_smooth(method="lm",formula=y~ poly(x,2), se = FALSE) +
+  labs(title="Quadratic Trend")
+
+grid.arrange(p1,p2,nrow=1)
+```
+
+Quadratic is a much better fit here because it is able to model the curve from the mid 80's into the present. A quadratic model without seasonality would be hte best used to fit this series.
+
+## Check ACF
+
+Examining autocorrelation with lag-1, I would expect a positive correlation as there is a definite trend in continuously decreasing for the first 30 years followed by continously increasing. The next value generally follows the trend of the previous. We can calculate this using ACf to prove:
+
+```{r}
+df.ts <- ts(df[,2],start=1966)
+Acf(df.ts)
+```
+
+
+The ACF with lag-1 is indeed positive
+
