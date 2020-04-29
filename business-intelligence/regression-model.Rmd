@@ -1,0 +1,43 @@
+---
+title: "Regression Modeling"
+author: "Jim Reilly"
+date: "4/14/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r load all required libraries, message=FALSE, include=FALSE}
+library(forecast)
+```
+
+## Loading Data
+```{r}
+df.not.seasonal <- read.csv(file = './data/TOTALNSA.csv')
+df.seasonal <- read.csv(file = './data/TOTALSA.CSV')
+
+head(df.not.seasonal)
+head(df.seasonal)
+```
+
+## Time Series Regression
+
+
+```{r}
+seasonal.ts <- ts(df.seasonal$TOTALSA, start = c(1976, 1), end=c(2020,3), freq = 12)
+
+seasonal.arima <- Arima(seasonal.ts, order = c(1,0,0))
+seasonal.arima
+```
+
+```{r}
+not.seasonal.ts <- ts(df.not.seasonal$TOTALNSA, start = c(1976, 1), end=c(2020,3), freq = 12)
+
+not.seasonal.arima <- Arima(not.seasonal.ts, order = c(1,0,0))
+not.seasonal.arima
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

@@ -1,7 +1,6 @@
 ---
 title: "Effect of September 11 on Air Travel"
 author: "Jim Reilly"
-date: "4/7/2020"
 output:
   pdf_document: default
   word_document: default
@@ -13,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r load all required libraries, message=FALSE, include=FALSE}
 library(forecast)
+library(TTR)
 ```
 
 
@@ -30,21 +30,21 @@ df <- read.csv(file = "./data/Sept11Travel.csv")
 trainingRows <- 141
 validationRows <- nrow(df) - trainingRows
 
-df.train <- ts(df$AirRPM, start = c(1990,1), end = c(2001,08), frequency = 12)
-df.actual <- ts(df$AirRPM, start = c(1990,1), end = c(2004,04), frequency = 12)
-df.valid.naive <- naive(df.train, h=validationRows)
-df.valid.snaive <- snaive(df.train, h=validationRows)
+df.air.train <- ts(df$AirRPM, start = c(1990,1), end = c(2001,08), frequency = 12)
+df.air.actual <- ts(df$AirRPM, start = c(1990,1), end = c(2004,04), frequency = 12)
+df.valid.naive <- naive(df.air.train, h=validationRows)
+df.valid.snaive <- snaive(df.air.train, h=validationRows)
 ```
 
 
 ## Plotting Air Travel Time Series
 
 ```{r}
-plot(df.train, xlim=c(1991,2005), ylab="Revenue Passenger Miles", main="Air Travel Miles over Time")
+plot(df.air.train, xlim=c(1991,2005), ylab="Revenue Passenger Miles", main="Air Travel Miles over Time")
 axis(1, at = seq(1990,2000.66), labels=format(seq(1990, 2000, 1)))
 lines(df.valid.naive$mean, lwd = 2, col = "blue", lty = 1)
 lines(df.valid.snaive$mean, lwd = 2, col = "red", lty = 1)
-lines(df.actual, col = "grey20", lty = 3)
+lines(df.air.actual, col = "grey20", lty = 3)
 ```
 
 ## Repeating for Auto and Rail
@@ -53,28 +53,79 @@ You can also embed plots, for example:
 
 ```{r}
 
-df.train <- ts(df$VMT, start = c(1990,1), end = c(2001,08), frequency = 12)
-df.actual <- ts(df$VMT, start = c(1990,1), end = c(2004,04), frequency = 12)
-df.valid.naive <- naive(df.train, h=validationRows)
-df.valid.snaive <- snaive(df.train, h=validationRows)
+df.rail.train <- ts(df$VMT, start = c(1990,1), end = c(2001,08), frequency = 12)
+df.rail.actual <- ts(df$VMT, start = c(1990,1), end = c(2004,04), frequency = 12)
+df.valid.naive <- naive(df.rail.train, h=validationRows)
+df.valid.snaive <- snaive(df.rail.train, h=validationRows)
 
-plot(df.train, xlim=c(1991,2005), ylab="Rail Passenger Miles", main="Rail Travel Miles over Time")
+plot(df.rail.train, xlim=c(1991,2005), ylab="Rail Passenger Miles", main="Rail Travel Miles over Time")
 axis(1, at = seq(1990,2000.66), labels=format(seq(1990, 2000, 1)))
 lines(df.valid.naive$mean, lwd = 2, col = "blue", lty = 1)
 lines(df.valid.snaive$mean, lwd = 2, col = "red", lty = 1)
-lines(df.actual, col = "grey20", lty = 3)
+lines(df.rail.actual, col = "grey20", lty = 3)
 ```
 
 ```{r}
-df.train <- ts(df$RailPM, start = c(1990,1), end = c(2001,08), frequency = 12)
-df.actual <- ts(df$RailPM, start = c(1990,1), end = c(2004,04), frequency = 12)
-df.valid.naive <- naive(df.train, h=validationRows)
-df.valid.snaive <- snaive(df.train, h=validationRows)
+df.vehicle.train <- ts(df$RailPM, start = c(1990,1), end = c(2001,08), frequency = 12)
+df.vehicle.actual <- ts(df$RailPM, start = c(1990,1), end = c(2004,04), frequency = 12)
+df.valid.naive <- naive(df.vehicle.train, h=validationRows)
+df.valid.snaive <- snaive(df.vehicle.train, h=validationRows)
 
-plot(df.train, xlim=c(1991,2005), ylab="Vehicle Miles Travelled", main="Vehical Miles over Time")
+plot(df.vehicle.train, xlim=c(1991,2005), ylab="Vehicle Miles Travelled", main="Vehical Miles over Time")
 axis(1, at = seq(1990,2000.66), labels=format(seq(1990, 2000, 1)))
 lines(df.valid.naive$mean, lwd = 2, col = "blue", lty = 1)
 lines(df.valid.snaive$mean, lwd = 2, col = "red", lty = 1)
-lines(df.actual, col = "grey20", lty = 3)
+lines(df.vehicle.actual, col = "grey20", lty = 3)
 ```
 
+## Questions
+
+a. Is the goal of this study descriptive or predictive?
+
+This model is predictive, its using two forms to estimate what travel would have been for Vehical, Rail, and Air in the years after the September 11 World Trade center attacks, in contrast to what actually occurred. 
+
+b. Plot each of the three pre-event time series (Air, Rail, Car)
+  i. What time series components appear from the plot?
+  
+  Of the four components: Level, Trend, Seasonality, and Noise, this time series plot shows all components. There is seasonality in that most of the travel occurs in certain parts of the years with consistent minimums in Jan/Feb and maximums mid year. Trends in Rail and Air travel show an increasing number of miles over the period of years. Level is most prevelent in vehicle miles over the course of 1996 to 2004 with a consistent average consumption of miles. Noise is present in all time series datasets.
+  
+  ii. What type of trend appears? Change the scale of the series, add trendlines and suppress seasonality to better visualize the trend pattern.
+  
+  all three modes of travel have pronounced annual seasonality, with the peak of travel occuring mid year (summer) and the least travel at the beginning of each year (winter). Smoothing the time series with a moving average window helps reduce seasonality to highlight long term trends.
+  
+```{r}
+smoothed.air <- SMA(df$AirRPM, n=6)
+
+par(mfrow=c(2,1))
+plot(df.air.train, xlim=c(1991,2001), ylab="Revenue Passenger Miles", main="Air Travel Miles over Time")
+
+smoothed.ts <- ts(smoothed.air, start = c(1990,1), end = c(2001,08), frequency = 12)
+
+plot(smoothed.ts, xlim=c(1991,2001), ylab="Revenue Passenger Miles", main="6 Month Moving Average Air Travel Miles over Time")
+```
+
+```{r}
+smoothed.rail <- SMA(df$RailPM, n=6)
+
+par(mfrow=c(2,1))
+plot(df.air.train, xlim=c(1991,2001), ylab="Revenue Passenger Miles", main="Air Travel Miles over Time")
+
+smoothed.ts <- ts(smoothed.rail, start = c(1990,1), end = c(2001,08), frequency = 12)
+
+plot(smoothed.ts, xlim=c(1991,2001), ylab="Revenue Passenger Miles", main="6 Month Moving Rail Travel Miles over Time")
+```
+
+```{r}
+smoothed.vehicle <- SMA(df$VMT, n=6)
+
+par(mfrow=c(2,1))
+plot(df.air.train, xlim=c(1991,2001), ylab="Revenue Passenger Miles", main="Air Travel Miles over Time")
+
+smoothed.ts <- ts(smoothed.vehicle, start = c(1990,1), end = c(2001,08), frequency = 12)
+
+plot(smoothed.ts, xlim=c(1991,2001), ylab="Revenue Passenger Miles", main="6 Month Moving Average Vehicle Travel Miles over Time")
+```
+
+  
+  
+  Rail has a distinct decreasing trend that levels around 1996 or 1997 while Vehicle and Air travel has increased over the time span
