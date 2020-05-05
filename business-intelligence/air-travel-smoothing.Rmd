@@ -1,0 +1,83 @@
+---
+title: "Smoothing Air Travel Data"
+author: "Jim Reilly"
+output:
+  pdf_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load all required libraries, message=FALSE, include=FALSE}
+library(forecast)
+library(TTR)
+```
+
+
+## Loading the dataset
+
+The datset includes time series information of total travel miles by month for three modes of travel. We will focus specifically on Air travel.
+
+```{r}
+df <- read.csv(file = "./data/Sept11Travel.csv")
+head(df)
+```
+
+
+
+## Setting up data partition before September 2001
+
+The first 141 rows of data are pre-September-11, and are the focus of this analysis. I will separate the dataset into two segments at this index.
+
+```{r}
+trainingRows <- 141
+validationRows <- nrow(df) - trainingRows
+
+df.air.train <- ts(df$AirRPM, start = c(1990,1), end = c(2001,08), frequency = 12)
+df.air.actual <- ts(df$AirRPM, start = c(1990,1), end = c(2004,04), frequency = 12)
+```
+
+
+## Plotting Air Travel Time Series pre-Event
+
+a. Create a time plot for the pre-even AIR time series, What time series components appear from the plot?
+
+```{r}
+plot(df.air.train, xlim=c(1991,2001.5), ylab="Revenue Passenger Miles", main="Air Travel Miles over Time")
+axis(1, at = seq(1990,2000.66), labels=format(seq(1990, 2000, 1)))
+```
+
+
+The plot for air travel over time shows both a positive linear trend in growth of total travel and annual seasonality. The presence of these two time series components eliminates most smoothing methods from consideration, leaving Holt-Winters exponential smoothing as the best choice.
+
+
+## Holt-Winters Exponential Smoothing
+
+Below is a demonstration of building a time series forecast for the months following September 11 based on an exponential time series (Holt-Winter's)
+
+```{r}
+hw.air <- ets(df.air.train, model="MAA") #MAA = Multiplicative error, additive trend, additive seasonality, Holt-Winters Exponential
+
+hw.air.pred <- forecast(hw.air, h = validationRows, level = 0)
+plot(hw.air.pred, xlim = c(1991,2005))
+```
+
+
+## Seasonally adjusted smoothing
+
+Figure 18.6 shows a time plot of the seaosnally adjusted pre-September-11 AIR series. Which of the following smoothing methods would be adequate for forecasting this series?
+
+* Moving Average
+* Simple exponential
+* Holt exponential
+* Holt-Winter's exponential
+
+
+![Seasonally adjusted air travel over time](./seasonal-air.png)
+
+
+We can remove Moving Average and Simple Exponential smoothing from consideration because the seasonally-adjusted data still has a growth trend. These methods are for sets with no trend or seasonality.
+
+Because the data is seasonally adjusted, we can treat it as if seasonality is removed. This leaves us with **Holt exponential** as the best method because we do not need to model the seasonality as provided by Holt-winter's exponential.

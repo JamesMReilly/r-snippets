@@ -1,12 +1,16 @@
 ---
 title: "Chapter 3 Excercises"
 author: "Jim Reilly"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
 ---
 
 ## 3.1: Shipments of Household Appliances
 
-```{r}
+```{r, message=FALSE, include=FALSE}
 library(ggplot2)
 library(dplyr)
 ```
@@ -145,3 +149,64 @@ ggplot(df, aes(x=anon, y=Retail.Price)) +
 ```
 
 Store J10 has the higest average. Several stores sell laptops in what appears to be the same price range such as C3, F6, G7, H8, and K11.
+
+## 3.4: Laptop Sales at a London Computer Chain: Interactive Visualization
+
+**a.** Prices Questions
+
+*At what price are laptops actually selling?*
+
+*Does price change with time?*
+
+Laptops are selling between $450 and $550, with peak prices mid-year, leading just infront of the highest period of sales
+
+![Monthly Sales](./pictures/Monthly Sales.png)
+
+
+*Are prices consistent across retail outlets?*
+
+There is no significant difference in price by location, the lowest average price is 466, with the highest being 522. Using circle size to represent the average retail price of a specific store there is no visible outliers.
+
+![Average Prices By Location](./pictures/PriceByLocation.png)
+
+*How does price change with configuration?*
+
+Price changes widely by configuration, here are a selected range of configurations pricing over 700 or under 350 on average, showing several selections at different price points by configuration.
+
+[Configuration Price](./pictures/ConfigPrice.png)
+
+
+**b.** Location Questions
+
+*Where are the stores and customers located?*
+
+A majority of customers are in the center cluster where there are also the most stores. This is likely the central downtown area.
+
+![Customer Location](./pictures/Customer Location.png)
+
+
+*Which stores are selling the most?*
+
+The central location stores by the most customers have the most sales
+
+[Location Sales](./pictures/Total Sales.png)
+
+
+*How far would customers travel to buy a laptop?*
+
+The average customer traveled further for a sale in the exterior perimeter stores, while average distance in the central customer stores was the lowest. Suggesting that a majority of the customers leave near the central customer and tend to shop at their closest location.
+
+![Distance Travelled](./pictures/Travel Distance.png)
+
+**d.** Configuration Questions
+
+*Do all stores sell all configurations?*
+
+Most stores sell nearly 100% of the configurations, colored by number of distinct configurations sold at the store using step sizes, all stores are the max color.
+
+![Location Configuration](./pictures/LocationConfig.png)
+
+
+
+
+

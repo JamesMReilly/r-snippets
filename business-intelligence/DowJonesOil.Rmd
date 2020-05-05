@@ -4,6 +4,8 @@ author: "Jim Reilly"
 output:
   pdf_document: default
   html_notebook: default
+  html_document:
+    df_print: paged
 ---
 
 ```{r, message=FALSE, render=FALSE}
@@ -54,15 +56,17 @@ drill.monthly$id <- 1:nrow(drill.monthly)
 drill.average <- drill %>%
   filter(as.character(Month) == "Average")
 
-dj.monthly <- dj %>%
-  select(Year, Open, High, Low, Close, Volume) %>%
-  filter(Year >= 2017)
-
-dj.monthly$id <- 1:nrow(dj.monthly)
+dj.monthly <- dj[1:31,]
 
 dj.average <- dj %>%
     select(Open, High, Low, Close, Volume) %>%
     aggregate(by=list(Year=dj$Year), FUN=mean)
+
+nRows <- nrow(dj.monthly)
+
+dj.monthly$id <- 1:nRows
+drill.monthly$id <- 1:nRows
+
 ```
 
 
@@ -75,6 +79,8 @@ ggplot(drill.average, aes(x = Year, y=(Total))) +
 ggplot(dj.average, aes(x = Year, y=Open, group=1)) +
   geom_line()
 ```
+
+While the Dow Jones Industrial average has an increasing trend year over year, oil drilling flucuates between an increasing trend in the first 8 years and a decreasing trend over the second 8 years
 
 ```{r}
 ggplot(drill.monthly, aes(x = id, y = Total)) +

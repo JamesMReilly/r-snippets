@@ -1,7 +1,9 @@
 ---
 title: "Regression Modeling"
 author: "Jim Reilly"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -45,12 +47,41 @@ not.seasonal.arima <- Arima(not.seasonal.ts, order = c(1,0,0))
 plot(not.seasonal.ts)
 ```
 
-The quality of fit is better on the seasonally adjusted data, selecting AIC as a specific tool to compare the same models fit on the different datasets, it is lowest for the seasonaly adjusted data.
-
+Using a smoothing method to try and recude seasonality on the original data, I produce the following graph. I use a moving average window of 3.
 ```{r}
-
 smoothed3 <- SMA(df.not.seasonal$TOTALNSA, n = 3)
 smoothed3.ts <- ts(smoothed3, start = c(1976, 1), end=c(2020,3), freq = 12)
 
 plot(smoothed3.ts)
+```
+
+
+Using a larger window of 6 the following chart is produced, the smoothing window is too large and looses the specificity of tracking the peaks in the dataset, namely 1995-2005  
+
+```{r}
+smoothed6 <- SMA(df.not.seasonal$TOTALNSA, n = 6)
+smoothed6.ts <- ts(smoothed6, start = c(1976, 1), end=c(2020,3), freq = 12)
+
+plot(smoothed6.ts)
+```
+Using a window the size of the period (a recommendation for moving average windows on seasonal datasets) this is the final plot produced. The attempt to reduce seasonal fluctuations in the data is still not equivalent to the results the government is able to produce. For a final method, I will attempt exponential smoothing of the dataset based on its time series components.
+
+```{r}
+smoothed12 <- SMA(df.not.seasonal$TOTALNSA, n = 12)
+smoothed12.ts <- ts(smoothed6, start = c(1976, 1), end=c(2020,3), freq = 12)
+
+plot(smoothed12.ts)
+```
+
+Exponential smoothing with no trend can also attempt to model the seasonality. Compared to the original non-seasonally adjusted data this is a better fit than the normal smoothing to remove seasonality, but not as clean as the governments models.
+
+```{r}
+train <- df.not.seasonal[1:470,]
+valid <- df.not.seasonal[471:531,]
+train.ts <- ts(train$TOTALNSA, start = c(1976, 1), end=c(2015,2), freq = 12)
+
+df.mna <- ets(train.ts, model = "MNA") #MNA = Multiplicative error, no trend, additive seasonality
+
+df.mna.ts <- forecast(df.mna, h = 61, level = 0)
+plot(df.mna.ts, xlim = c(1976,2020))
 ```
