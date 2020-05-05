@@ -13,6 +13,8 @@
 .Rhistory
 .RData
 
+# Python notebook checkpoints
+.ipynb_checkpoints
 
 *.md
 *.tex
